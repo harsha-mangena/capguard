@@ -28,6 +28,7 @@ Legend: ✅ done · 🔜 next · 🔭 later · status against the 2026 OWASP Top
 - ✅ **Task/intent-scoped capability envelopes** — PAuth-style signed, expiring, per-argument-constrained JIT grants; issuing only attenuates. *(ASI02, ASI03)*
 - ✅ **Provenance-preserving memory / RAG guard** — taint survives the write→read round-trip; optional deny-untrusted-writes. *(ASI06)*
 - ✅ **Policy-pack compiler** — declarative YAML/JSON/dict profiles → `PolicyEngine` + capability templates; builtin `owasp-baseline` / `finance` / `data-exfil`.
+- ✅ **Streamable-HTTP MCP transport** — guard remote/hosted MCP servers (`HttpDownstream`) and serve the guarded proxy over HTTP (`MCPHttpServer`), stdlib-only. *(ASI04, ASI07)*
 
 > **Every one of the ten OWASP ASI risks now has a deterministic shipped mechanism (all ✓).** 143 tests passing, 1 skipped (Docker).
 
@@ -49,9 +50,10 @@ Signed identity + delegation attenuation ship (HMAC default, Ed25519 optional).
 Next: JWT-SVID/SPIFFE issuance integration, OIDC principal binding, map to the
 OWASP Non-Human-Identity Top 10, and an AIP-style verifiable-delegation envelope.
 
-### 3. Streamable-HTTP MCP transport
-- Add the remote MCP transport (Streamable HTTP / SSE) next to stdio, so the proxy guards hosted MCP servers, not just local subprocesses.
-- Per-tool / per-arg default provenance config; a provenance-propagating client shim.
+### 3. Streamable-HTTP MCP transport — shipped (JSON mode)
+`HttpDownstream` + `MCPHttpServer` ship (`capguard.mcp_http`). Next: full
+server→client **SSE streaming** (GET stream + resumability), `Mcp-Session-Id`
+lifecycle, and OAuth bearer-token auth on the HTTP boundary.
 
 ### 4. Policy-pack compiler — core shipped
 Compiler + `owasp-baseline` / `finance` / `data-exfil` packs ship (`capguard.packs`).

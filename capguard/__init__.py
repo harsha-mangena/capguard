@@ -232,6 +232,14 @@ __all__ += [
     "StdioServer",
 ]
 
+# Streamable-HTTP MCP transport (guard remote MCP servers / serve the proxy over HTTP)
+from .mcp_http import HttpDownstream, MCPHttpServer  # noqa: E402
+
+__all__ += [
+    "HttpDownstream",
+    "MCPHttpServer",
+]
+
 # Sandboxed execution (ASI05)
 from .sandbox import (  # noqa: E402
     DenyBackend,

@@ -26,6 +26,7 @@ from .policy_dsl import (
     PolicyEngine,
     Provenance,
     Rule,
+    Signal,
     Taint,
     role_in,
     tool_is,
@@ -63,6 +64,7 @@ __all__ = [
     "Provenance",
     "Taint",
     "Flow",
+    "Signal",
     "AND",
     "OR",
     "NOT",
@@ -257,6 +259,23 @@ __all__ += [
     "StaticTokenVerifier",
     "TokenClaims",
     "TokenError",
+]
+
+# Advisory detectors (deterministic-first, probabilistic-assist)
+from .detectors import (  # noqa: E402
+    CallableDetector,
+    Detector,
+    DetectorSignal,
+    PIIDetector,
+    RegexInjectionDetector,
+)
+
+__all__ += [
+    "CallableDetector",
+    "Detector",
+    "DetectorSignal",
+    "PIIDetector",
+    "RegexInjectionDetector",
 ]
 
 # Sandboxed execution (ASI05)

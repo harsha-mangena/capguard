@@ -16,7 +16,7 @@ was unsafe under FastAPI's threadpool).
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from .audit import AuditEvent, AuditSink, digest
 from .core import (
@@ -28,6 +28,7 @@ from .core import (
     PolicyDecision,
     ToolSpec,
 )
+from .detectors import Detector
 from .identity import Signer
 from .monitor import CIRCUIT_OPEN_ERROR, CircuitBreaker
 from .policy_dsl import CallContext, Decision, Effect, PolicyEngine
@@ -52,6 +53,7 @@ class AgentRuntime:
         tracker: Optional[ProvenanceTracker] = None,
         circuit_breaker: Optional[CircuitBreaker] = None,
         task_scope_signer: Optional[Signer] = None,
+        detectors: Optional[List[Detector]] = None,
     ) -> None:
         self._registry = registry
         self._policy = policy or Policy()
@@ -65,6 +67,9 @@ class AgentRuntime:
         self._circuit_breaker = circuit_breaker
         # Optional signer used to verify signed task scopes (P6) at this boundary.
         self._task_scope_signer = task_scope_signer
+        # Optional advisory detectors (probabilistic-assist). Their signals feed
+        # DSL predicates but never gate directly — the deterministic layer rules.
+        self._detectors: List[Detector] = list(detectors or [])
         # Optional information-flow tracker. When present, every argument's
         # propagated label is computed before policy evaluation and every result
         # is labeled after dispatch, so taint flows across the whole call chain.
@@ -100,6 +105,23 @@ class AgentRuntime:
             if not arg_name or arg_name not in kwargs:
                 continue
             enforcer.enforce(kwargs[arg_name])
+
+    def _run_detectors(self, ctx: CallContext) -> Dict[str, Any]:
+        """Run advisory detectors over the call; collect signals by name.
+
+        Each detector is fail-open: if it raises, its signal is simply absent —
+        the deterministic gates are unaffected. Detectors never decide; they only
+        feed DSL predicates (which, under deny-overrides, can only tighten).
+        """
+        signals: Dict[str, Any] = {}
+        for det in self._detectors:
+            try:
+                sig = det.inspect(ctx)
+            except Exception:  # noqa: BLE001
+                sig = None
+            if sig is not None:
+                signals[sig.name] = sig
+        return signals
 
     # ------------------------------------------------------------------ #
     def invoke_tool(
@@ -188,6 +210,11 @@ class AgentRuntime:
             raise PermissionError(
                 f"agent {agent.id!r} lacks capabilities for tool {name!r}"
             )
+
+        # 1.5 advisory detectors → ctx (probabilistic-assist). Their signals feed
+        # the DSL; deny-overrides guarantees they can only tighten, never loosen.
+        if self._detectors:
+            ctx.extra["detectors"] = self._run_detectors(ctx)
 
         # 2. programmable DSL (deny-overrides). It can only tighten.
         dsl: Decision = self._engine.evaluate(ctx)

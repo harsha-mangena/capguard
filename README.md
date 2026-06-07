@@ -4,11 +4,11 @@
 
 CapGuard is an embeddable Python SDK that makes any agent stack (LangGraph, CrewAI, AutoGen, OpenAI Agents, custom loops, or raw MCP) safe by default. It is **not** a prompt classifier and **not** a guardrail that tries to guess intent. It is a deterministic enforcement runtime: it decides — from capabilities, policy, and data provenance — whether a concrete tool call is allowed, denied, or needs human approval, and it backs that decision with hard isolation and a tamper-evident audit trail.
 
-**Status:** active development. Core is implemented and tested. **171 tests passing** (1 skipped: Docker backend); deterministic security benchmark at **0% attack-success rate / 100% utility / ~0.04 ms per-call overhead**. On the **real AgentDojo benchmark** (97 user + 35 injection tasks across all four suites), one general provenance profile holds **ASR 0.0% at 100% utility** under deterministic ground-truth replay. **All ten OWASP ASI risks now carry a shipped mechanism — every row is ✓.**
+**Status:** active development. Core is implemented and tested. **181 tests passing** (1 skipped: Docker backend); deterministic security benchmark at **0% attack-success rate / 100% utility / ~0.04 ms per-call overhead**. On the **real AgentDojo benchmark** (97 user + 35 injection tasks across all four suites), one general provenance profile holds **ASR 0.0% at 100% utility** under deterministic ground-truth replay. **All ten OWASP ASI risks now carry a shipped mechanism — every row is ✓.**
 
 ```bash
 pip install -e .                 # or: poetry install
-PYTHONPATH=. pytest -q           # 171 passed, 1 skipped
+PYTHONPATH=. pytest -q           # 181 passed, 1 skipped
 
 capguard bench                       # scripted security benchmark (exit non-zero on regression)
 capguard agentdojo                   # real AgentDojo eval (pip install agentdojo)
@@ -48,6 +48,7 @@ CapGuard fills that gap. It is the deterministic backstop: even when a model is 
 | **Task-scoped capability envelopes** | `taskscope` | PAuth-style JIT least privilege: a signed, expiring envelope authorizes only the concrete operations a task implies (`transfer ≤ $100 to Bob`), enforced per-call on top of standing capabilities. Issuing can only attenuate. |
 | **Memory / RAG poisoning guard** | `memory` | Provenance-preserving memory: taint survives the write→read round-trip so recalled untrusted content is still blocked at sinks; optional deny-untrusted-writes mode. (ASI06) |
 | **Policy packs** | `packs` | Declarative YAML/JSON/dict profiles compile to a `PolicyEngine` (and capability templates). Ship `owasp-baseline` / `finance` / `data-exfil`; adopt a strong default in one line. |
+| **Advisory detectors** | `detectors` | Deterministic-first, probabilistic-assist: a detector (your classifier via `CallableDetector`, or built-in regex injection / PII heuristics) emits a scored signal that DSL predicates read (`Signal("prompt_injection").above(0.8)`). Detectors are advisory — under deny-overrides they can only tighten, never allow — and fail open. This is how CapGuard composes *underneath* LlamaFirewall / PromptGuard2 / CaMeL. |
 | **Benchmark harness** | `bench` | Deterministic scripted suite + **real AgentDojo** adapter measuring ASR / utility / latency, wired as a CI gate. |
 
 ---
@@ -134,7 +135,7 @@ CapGuard measures **deterministic enforcement** — does it block the malicious 
 
 | Risk | Status | Mechanism |
 |------|--------|-----------|
-| ASI01 Goal/behavior hijack | ✓ | provenance **propagated** across tool I/O (taint a laundered value end-to-end) |
+| ASI01 Goal/behavior hijack | ✓ | provenance **propagated** across tool I/O (taint a laundered value end-to-end) + advisory detector predicates |
 | ASI02 Tool misuse | ✓ | attenuation + argument-level DSL + normalize-before-enforce + task-scoped envelopes |
 | ASI03 Identity & privilege abuse | ✓ | verifiable signed identity (principal+tenant), delegation-only-attenuates, JIT grants |
 | ASI04 Agentic supply chain | ✓ | signed plugins, MCP pinning, poisoning scan |
@@ -164,6 +165,7 @@ capguard/
   memory.py        provenance-preserving memory/RAG store (anti context-poisoning, ASI06)
   packs.py         policy-pack compiler (declarative profiles -> PolicyEngine) + builtin packs
   adapters.py      one-line guard + LangChain/OpenAI-Agents/CrewAI bindings
+  detectors.py     advisory detector hooks (CallableDetector + regex-injection / PII) feeding the DSL
   cli.py           `capguard` CLI: bench / agentdojo / audit verify / packs / mcp-scan / proxy
   audit.py         hash-chained tamper-evident audit + sinks
   approval.py      replay-safe, args-bound approval tokens
@@ -173,7 +175,7 @@ capguard/
   mcp_auth.py      OAuth 2.1 resource-server auth (bearer/JWT verify, RFC 9728 PRM, RFC 8707 audience)
   sandbox.py       execution backends (subprocess / docker / deny) + tool factories
   bench/           scripted security benchmark + real AgentDojo adapter + CI gate
-tests/             171 tests (provenance, identity, adapters, properties, AgentDojo, monitor, taskscope, memory, packs, http, auth, cli, …)
+tests/             181 tests (provenance, identity, adapters, properties, AgentDojo, monitor, taskscope, memory, packs, http, auth, detectors, cli, …)
 examples/          runnable MCP server + guarded proxy launcher
 docs/              strategy memo, enhancement plan, benchmark results
 ```

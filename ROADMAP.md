@@ -31,6 +31,7 @@ Legend: ✅ done · 🔜 next · 🔭 later · status against the 2026 OWASP Top
 - ✅ **Streamable-HTTP MCP transport** — guard remote/hosted MCP servers (`HttpDownstream`) and serve the guarded proxy over HTTP (`MCPHttpServer`), stdlib-only. *(ASI04, ASI07)*
 - ✅ **Unified `capguard` CLI** — `bench` / `agentdojo` / `audit verify` / `packs list|show|lint` / `mcp-scan` / `proxy --check`, each with a CI-meaningful exit code.
 - ✅ **OAuth 2.1 resource-server auth on the HTTP MCP boundary** — bearer/JWT verify (alg-pinned HS256, audience per RFC 8707), `401`/`403` with `WWW-Authenticate`, Protected Resource Metadata (RFC 9728); composes with the signed-identity gate. *(ASI03, ASI07)*
+- ✅ **Advisory detector hooks** — `Detector` protocol + `CallableDetector` (wire any classifier) + built-in regex-injection / PII heuristics; `Signal(...)` DSL predicate. Deterministic-first: advisory-only, fail-open, can only tighten. *(ASI01)*
 
 > **Every one of the ten OWASP ASI risks now has a deterministic shipped mechanism (all ✓).** 143 tests passing, 1 skipped (Docker).
 
@@ -82,7 +83,7 @@ Deterministic anomaly detection + circuit breaker ship (`capguard.monitor`). Nex
 
 ### Full provenance / taint
 - Move from tool-boundary tagging to propagation across tool I/O (toward CaMeL-style soundness), while keeping it a library hook, not a forked interpreter.
-- Optional advisory detectors (PromptGuard2 / AlignmentCheck) as predicates — deterministic-first, probabilistic-assist.
+- Advisory detector hooks ship (`capguard.detectors`, deterministic-first). Next: ready-made adapters for PromptGuard2 / AlignmentCheck / Llama as `CallableDetector`s.
 
 ### Framework adapters (first-class)
 - LangGraph node/tool wrappers, CrewAI tool wrapper, OpenAI Agents SDK tool shim, LlamaIndex — each routing through the runtime with zero ceremony.

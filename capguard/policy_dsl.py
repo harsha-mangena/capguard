@@ -172,6 +172,50 @@ class Flow:
         return _p
 
 
+class Signal:
+    """Read an advisory detector's signal in a policy predicate.
+
+    Detectors (see ``capguard.detectors``) attach scored signals to the call
+    context; ``Signal`` lets a rule act on them while the deterministic core
+    stays the gate (deny-overrides means this can only tighten):
+
+        ``Rule(when=Signal("prompt_injection").above(0.8), effect=Effect.REQUIRE_APPROVAL)``
+
+    Reads ``ctx.extra['detectors']`` duck-typed (objects with ``.score`` / ``.label``),
+    so the DSL has no dependency on the detector module.
+    """
+
+    def __init__(self, name: str) -> None:
+        self._name = name
+
+    def _sig(self, c: "CallContext") -> Any:
+        return c.extra.get("detectors", {}).get(self._name)
+
+    def above(self, threshold: float) -> Predicate:
+        def _p(c: "CallContext") -> bool:
+            s = self._sig(c)
+            return s is not None and getattr(s, "score", 0.0) >= threshold
+        return _p
+
+    def at_or_below(self, threshold: float) -> Predicate:
+        def _p(c: "CallContext") -> bool:
+            s = self._sig(c)
+            return s is not None and getattr(s, "score", 0.0) <= threshold
+        return _p
+
+    def flagged(self, threshold: float = 0.5) -> Predicate:
+        def _p(c: "CallContext") -> bool:
+            s = self._sig(c)
+            return s is not None and (getattr(s, "score", 0.0) >= threshold or bool(getattr(s, "label", "")))
+        return _p
+
+    def label_is(self, label: str) -> Predicate:
+        def _p(c: "CallContext") -> bool:
+            s = self._sig(c)
+            return s is not None and getattr(s, "label", "") == label
+        return _p
+
+
 def AND(*ps: Predicate) -> Predicate:
     return lambda c: all(p(c) for p in ps)
 

@@ -4,11 +4,11 @@
 
 CapGuard is an embeddable Python SDK that makes any agent stack (LangGraph, CrewAI, AutoGen, OpenAI Agents, custom loops, or raw MCP) safe by default. It is **not** a prompt classifier and **not** a guardrail that tries to guess intent. It is a deterministic enforcement runtime: it decides — from capabilities, policy, and data provenance — whether a concrete tool call is allowed, denied, or needs human approval, and it backs that decision with hard isolation and a tamper-evident audit trail.
 
-**Status:** active development. Core is implemented and tested. **157 tests passing** (1 skipped: Docker backend); deterministic security benchmark at **0% attack-success rate / 100% utility / ~0.04 ms per-call overhead**. On the **real AgentDojo benchmark** (97 user + 35 injection tasks across all four suites), one general provenance profile holds **ASR 0.0% at 100% utility** under deterministic ground-truth replay. **All ten OWASP ASI risks now carry a shipped mechanism — every row is ✓.**
+**Status:** active development. Core is implemented and tested. **171 tests passing** (1 skipped: Docker backend); deterministic security benchmark at **0% attack-success rate / 100% utility / ~0.04 ms per-call overhead**. On the **real AgentDojo benchmark** (97 user + 35 injection tasks across all four suites), one general provenance profile holds **ASR 0.0% at 100% utility** under deterministic ground-truth replay. **All ten OWASP ASI risks now carry a shipped mechanism — every row is ✓.**
 
 ```bash
 pip install -e .                 # or: poetry install
-PYTHONPATH=. pytest -q           # 157 passed, 1 skipped
+PYTHONPATH=. pytest -q           # 171 passed, 1 skipped
 
 capguard bench                       # scripted security benchmark (exit non-zero on regression)
 capguard agentdojo                   # real AgentDojo eval (pip install agentdojo)
@@ -42,6 +42,7 @@ CapGuard fills that gap. It is the deterministic backstop: even when a model is 
 | **Tamper-evident audit** | `audit` | Every decision is hash-chained (`prev_hash` + event → `hash`); any retroactive edit breaks the chain. Logs digests, not raw payloads. |
 | **MCP security engine** | `mcp_guard` | Pins tool definitions by fingerprint, detects **rug pulls** (changed defs), **shadowing** (cross-server name/description collisions), and **tool poisoning** (instruction-override / concealment / exfiltration / zero-width smuggling in descriptions). |
 | **Runnable MCP proxy** | `mcp_proxy`, `mcp_http` | A JSON-RPC proxy any MCP client connects to, over **stdio or Streamable HTTP**. Guards local subprocess *and* remote/hosted MCP servers. Poisoned/rug-pulled/shadowed tools are **stripped from `tools/list`** so the malicious description never reaches the model; every `tools/call` is enforced and audited. |
+| **OAuth 2.1 boundary auth** | `mcp_auth` | The HTTP MCP server is an OAuth 2.1 **resource server**: validates bearer tokens (stdlib HS256-JWT or static), pins `alg`, checks **audience** (RFC 8707), returns `401 + WWW-Authenticate` / `403` and serves Protected Resource Metadata (RFC 9728). Composes with the signed-identity gate. |
 | **Sandboxed execution** | `sandbox` | Execution backends with isolation tiers: hardened `SubprocessBackend` (POSIX rlimits, no-shell, env scrub, timeout-kill), ephemeral `DockerBackend` (`--network none`, read-only, caps dropped), and `DenyBackend`. |
 | **Rogue-agent detection + kill switch** | `monitor` | Deterministic sliding-window anomaly detection over the audit stream — call-rate, denial-rate (probing), blast-radius (distinct sinks), novel-tool — trips a per-agent **circuit breaker**; the runtime then fail-closes that agent. (ASI10/ASI08) |
 | **Task-scoped capability envelopes** | `taskscope` | PAuth-style JIT least privilege: a signed, expiring envelope authorizes only the concrete operations a task implies (`transfer ≤ $100 to Bob`), enforced per-call on top of standing capabilities. Issuing can only attenuate. |
@@ -169,9 +170,10 @@ capguard/
   mcp_guard.py     MCP pinning, rug-pull / shadowing / poisoning detection
   mcp_proxy.py     runnable JSON-RPC MCP proxy (stdio) + downstream clients; signed-identity gate
   mcp_http.py      Streamable-HTTP MCP transport: guard remote servers + serve the proxy over HTTP
+  mcp_auth.py      OAuth 2.1 resource-server auth (bearer/JWT verify, RFC 9728 PRM, RFC 8707 audience)
   sandbox.py       execution backends (subprocess / docker / deny) + tool factories
   bench/           scripted security benchmark + real AgentDojo adapter + CI gate
-tests/             157 tests (provenance, identity, adapters, properties, AgentDojo, monitor, taskscope, memory, packs, http, cli, …)
+tests/             171 tests (provenance, identity, adapters, properties, AgentDojo, monitor, taskscope, memory, packs, http, auth, cli, …)
 examples/          runnable MCP server + guarded proxy launcher
 docs/              strategy memo, enhancement plan, benchmark results
 ```

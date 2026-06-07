@@ -242,6 +242,23 @@ __all__ += [
     "MCPHttpServer",
 ]
 
+# OAuth 2.1 resource-server auth for the HTTP MCP boundary (RFC 9728 / RFC 8707)
+from .mcp_auth import (  # noqa: E402
+    HMACJWTVerifier,
+    ProtectedResourceMetadata,
+    StaticTokenVerifier,
+    TokenClaims,
+    TokenError,
+)
+
+__all__ += [
+    "HMACJWTVerifier",
+    "ProtectedResourceMetadata",
+    "StaticTokenVerifier",
+    "TokenClaims",
+    "TokenError",
+]
+
 # Sandboxed execution (ASI05)
 from .sandbox import (  # noqa: E402
     DenyBackend,

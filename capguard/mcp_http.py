@@ -30,6 +30,14 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 from .mcp_proxy import MCPProxy, PROTOCOL_VERSION, jrpc_request
 from .mcp_guard import MCPToolDef
+from .mcp_auth import (
+    ProtectedResourceMetadata,
+    TokenError,
+    TokenVerifier,
+    WELL_KNOWN_PRM_PATH,
+    extract_bearer,
+    www_authenticate,
+)
 
 
 # --------------------------------------------------------------------------- #
@@ -137,7 +145,8 @@ class _ProxyHTTPRequestHandler(BaseHTTPRequestHandler):
         pass
 
     def _write_json(self, code: int, payload: Optional[Dict[str, Any]], *,
-                    session_id: Optional[str] = None) -> None:
+                    session_id: Optional[str] = None,
+                    extra_headers: Optional[Dict[str, str]] = None) -> None:
         body = json.dumps(payload).encode() if payload is not None else b""
         self.send_response(code)
         if payload is not None:
@@ -145,11 +154,49 @@ class _ProxyHTTPRequestHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         if session_id:
             self.send_header("Mcp-Session-Id", session_id)
+        for k, v in (extra_headers or {}).items():
+            self.send_header(k, v)
         self.end_headers()
         if body:
             self.wfile.write(body)
 
+    def _authorized(self) -> bool:
+        """Enforce OAuth resource-server auth if a verifier is configured.
+
+        Returns True to proceed; otherwise writes the proper 401/403 challenge
+        (RFC 9728 WWW-Authenticate) and returns False.
+        """
+        verifier: Optional[TokenVerifier] = getattr(self.server, "auth_verifier", None)
+        if verifier is None:
+            return True  # auth disabled
+        prm_url = getattr(self.server, "auth_prm_url", None)
+        token = extract_bearer(self.headers.get("Authorization"))
+        if token is None:
+            self._write_json(401, {"jsonrpc": "2.0", "id": None,
+                                   "error": {"code": -32001, "message": "authentication required"}},
+                             extra_headers={"WWW-Authenticate": www_authenticate(resource_metadata_url=prm_url)})
+            return False
+        try:
+            claims = verifier.verify(token)
+        except TokenError as exc:
+            self._write_json(401, {"jsonrpc": "2.0", "id": None,
+                                   "error": {"code": -32001, "message": f"invalid token: {exc}"}},
+                             extra_headers={"WWW-Authenticate": www_authenticate(
+                                 resource_metadata_url=prm_url, error="invalid_token")})
+            return False
+        required = getattr(self.server, "auth_required_scopes", frozenset())
+        if required and not required.issubset(claims.scopes):
+            self._write_json(403, {"jsonrpc": "2.0", "id": None,
+                                   "error": {"code": -32002, "message": "insufficient scope"}},
+                             extra_headers={"WWW-Authenticate": www_authenticate(
+                                 resource_metadata_url=prm_url, error="insufficient_scope",
+                                 scope=" ".join(sorted(required)))})
+            return False
+        return True
+
     def do_POST(self) -> None:
+        if not self._authorized():
+            return
         length = int(self.headers.get("Content-Length", 0) or 0)
         raw = self.rfile.read(length) if length else b""
         try:
@@ -170,6 +217,11 @@ class _ProxyHTTPRequestHandler(BaseHTTPRequestHandler):
         self._write_json(200, response, session_id=session_id)
 
     def do_GET(self) -> None:
+        # Protected Resource Metadata (RFC 9728) is public so clients can discover auth.
+        prm = getattr(self.server, "auth_prm", None)
+        if prm is not None and self.path.split("?", 1)[0] == WELL_KNOWN_PRM_PATH:
+            self._write_json(200, prm.to_dict())
+            return
         # optional server->client SSE stream; not used in JSON-response mode
         self._write_json(405, {"jsonrpc": "2.0", "id": None,
                                "error": {"code": -32000, "message": "GET stream not supported"}})
@@ -178,9 +230,20 @@ class _ProxyHTTPRequestHandler(BaseHTTPRequestHandler):
 class MCPHttpServer:
     """Serve a guarded :class:`MCPProxy` over Streamable HTTP (JSON-response mode)."""
 
-    def __init__(self, proxy: MCPProxy, host: str = "127.0.0.1", port: int = 0) -> None:
+    def __init__(self, proxy: MCPProxy, host: str = "127.0.0.1", port: int = 0, *,
+                 token_verifier: Optional[TokenVerifier] = None,
+                 required_scopes=(),
+                 resource_metadata: Optional[ProtectedResourceMetadata] = None) -> None:
         self._httpd = ThreadingHTTPServer((host, port), _ProxyHTTPRequestHandler)
         self._httpd.proxy = proxy  # type: ignore[attr-defined]
+        # OAuth resource-server config (None verifier => auth disabled)
+        self._httpd.auth_verifier = token_verifier            # type: ignore[attr-defined]
+        self._httpd.auth_required_scopes = frozenset(required_scopes)  # type: ignore[attr-defined]
+        self._httpd.auth_prm = resource_metadata              # type: ignore[attr-defined]
+        self._httpd.auth_prm_url = (                          # type: ignore[attr-defined]
+            resource_metadata.resource.rstrip("/") + WELL_KNOWN_PRM_PATH
+            if resource_metadata else None
+        )
         self._thread: Optional[threading.Thread] = None
 
     @property

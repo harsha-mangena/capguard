@@ -37,6 +37,36 @@ def _load_doc(path: str) -> Any:
     return json.loads(text)
 
 
+def _build_auth(auth_cfg: Optional[Dict[str, Any]], http_cfg: Dict[str, Any]):
+    """Build (token_verifier, required_scopes, resource_metadata) from config."""
+    if not auth_cfg:
+        return None, (), None
+    from .mcp_auth import HMACJWTVerifier, ProtectedResourceMetadata, StaticTokenVerifier
+
+    audience = auth_cfg.get("audience")
+    kind = auth_cfg.get("type", "jwt-hs256")
+    if kind == "static":
+        verifier = StaticTokenVerifier(auth_cfg.get("tokens", {}), audience=audience)
+    elif kind == "jwt-hs256":
+        secret = auth_cfg["secret"]
+        verifier = HMACJWTVerifier(secret.encode() if isinstance(secret, str) else secret,
+                                   audience=audience)
+    else:
+        raise ValueError(f"unknown auth type {kind!r} (use 'jwt-hs256' or 'static')")
+
+    prm = None
+    resource = auth_cfg.get("resource")
+    if resource is None and http_cfg:
+        resource = f"http://{http_cfg.get('host', '127.0.0.1')}:{int(http_cfg.get('port', 8080))}/"
+    if resource:
+        prm = ProtectedResourceMetadata(
+            resource=resource,
+            authorization_servers=auth_cfg.get("authorization_servers", []),
+            scopes_supported=auth_cfg.get("required_scopes", []),
+        )
+    return verifier, tuple(auth_cfg.get("required_scopes", [])), prm
+
+
 def _build_proxy_from_config(cfg: Dict[str, Any]):
     from .core import AgentIdentity
     from .mcp_guard import MCPGuard
@@ -169,8 +199,11 @@ def _cmd_proxy(args) -> int:
     if transport == "http":
         from .mcp_http import MCPHttpServer
         http_cfg = cfg.get("http", {})
+        verifier, scopes, prm = _build_auth(cfg.get("auth"), http_cfg)
         srv = MCPHttpServer(proxy, host=http_cfg.get("host", "127.0.0.1"),
-                            port=int(http_cfg.get("port", 8080))).start()
+                            port=int(http_cfg.get("port", 8080)),
+                            token_verifier=verifier, required_scopes=scopes,
+                            resource_metadata=prm).start()
         print(f"CapGuard MCP proxy serving on {srv.url}", file=sys.stderr)
         import time
         try:

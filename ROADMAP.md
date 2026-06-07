@@ -30,6 +30,7 @@ Legend: ✅ done · 🔜 next · 🔭 later · status against the 2026 OWASP Top
 - ✅ **Policy-pack compiler** — declarative YAML/JSON/dict profiles → `PolicyEngine` + capability templates; builtin `owasp-baseline` / `finance` / `data-exfil`.
 - ✅ **Streamable-HTTP MCP transport** — guard remote/hosted MCP servers (`HttpDownstream`) and serve the guarded proxy over HTTP (`MCPHttpServer`), stdlib-only. *(ASI04, ASI07)*
 - ✅ **Unified `capguard` CLI** — `bench` / `agentdojo` / `audit verify` / `packs list|show|lint` / `mcp-scan` / `proxy --check`, each with a CI-meaningful exit code.
+- ✅ **OAuth 2.1 resource-server auth on the HTTP MCP boundary** — bearer/JWT verify (alg-pinned HS256, audience per RFC 8707), `401`/`403` with `WWW-Authenticate`, Protected Resource Metadata (RFC 9728); composes with the signed-identity gate. *(ASI03, ASI07)*
 
 > **Every one of the ten OWASP ASI risks now has a deterministic shipped mechanism (all ✓).** 143 tests passing, 1 skipped (Docker).
 
@@ -51,10 +52,11 @@ Signed identity + delegation attenuation ship (HMAC default, Ed25519 optional).
 Next: JWT-SVID/SPIFFE issuance integration, OIDC principal binding, map to the
 OWASP Non-Human-Identity Top 10, and an AIP-style verifiable-delegation envelope.
 
-### 3. Streamable-HTTP MCP transport — shipped (JSON mode)
-`HttpDownstream` + `MCPHttpServer` ship (`capguard.mcp_http`). Next: full
-server→client **SSE streaming** (GET stream + resumability), `Mcp-Session-Id`
-lifecycle, and OAuth bearer-token auth on the HTTP boundary.
+### 3. Streamable-HTTP MCP transport — shipped (JSON mode + OAuth)
+`HttpDownstream` + `MCPHttpServer` + OAuth 2.1 resource-server auth ship
+(`capguard.mcp_http`, `capguard.mcp_auth`). Next: full server→client **SSE
+streaming** (GET stream + resumability) and `Mcp-Session-Id` lifecycle; an
+Ed25519/RS256 JWT verifier and JWKS fetch for third-party authorization servers.
 
 ### 4. Policy-pack compiler — core shipped
 Compiler + `owasp-baseline` / `finance` / `data-exfil` packs ship (`capguard.packs`).

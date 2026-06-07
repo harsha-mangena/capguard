@@ -28,6 +28,7 @@ from .core import (
     PolicyDecision,
     ToolSpec,
 )
+from .budget import BudgetExceeded, BudgetLedger
 from .detectors import Detector
 from .identity import Signer
 from .monitor import CIRCUIT_OPEN_ERROR, CircuitBreaker
@@ -54,6 +55,9 @@ class AgentRuntime:
         circuit_breaker: Optional[CircuitBreaker] = None,
         task_scope_signer: Optional[Signer] = None,
         detectors: Optional[List[Detector]] = None,
+        budget_ledger: Optional[BudgetLedger] = None,
+        budget_key_fn: Optional[Callable[[AgentIdentity, Optional[str]], str]] = None,
+        trip_breaker_on_budget: bool = False,
     ) -> None:
         self._registry = registry
         self._policy = policy or Policy()
@@ -70,6 +74,11 @@ class AgentRuntime:
         # Optional advisory detectors (probabilistic-assist). Their signals feed
         # DSL predicates but never gate directly — the deterministic layer rules.
         self._detectors: List[Detector] = list(detectors or [])
+        # Optional cumulative budget (ASI08 unbounded consumption). Checked before
+        # dispatch; one call charged after; overspend can trip the breaker.
+        self._budget = budget_ledger
+        self._budget_key_fn = budget_key_fn
+        self._trip_breaker_on_budget = trip_breaker_on_budget
         # Optional information-flow tracker. When present, every argument's
         # propagated label is computed before policy evaluation and every result
         # is labeled after dispatch, so taint flows across the whole call chain.
@@ -122,6 +131,30 @@ class AgentRuntime:
             if sig is not None:
                 signals[sig.name] = sig
         return signals
+
+    def _budget_key(self, agent: AgentIdentity, request_id: Optional[str]) -> str:
+        return self._budget_key_fn(agent, request_id) if self._budget_key_fn else agent.id
+
+    def report_usage(self, agent: "AgentIdentity | str", *, tokens: int = 0, cost: float = 0.0,
+                     request_id: Optional[str] = None) -> None:
+        """Report measured token / dollar usage so cumulative budgets can enforce.
+
+        Call this after an LLM/tool invocation whose cost you measured (only the
+        application knows token counts). Raises ``BudgetExceeded`` — and trips the
+        circuit breaker if configured — when a ceiling is breached.
+        """
+        if self._budget is None:
+            return
+        if isinstance(agent, str):
+            key = agent
+        else:
+            key = self._budget_key(agent, request_id)
+        try:
+            self._budget.charge(key, tokens=tokens, cost=cost)
+        except BudgetExceeded as exc:
+            if self._trip_breaker_on_budget and self._circuit_breaker is not None:
+                self._circuit_breaker.trip(key, str(exc))
+            raise
 
     # ------------------------------------------------------------------ #
     def invoke_tool(
@@ -183,6 +216,17 @@ class AgentRuntime:
                 f"agent {agent.id!r} is halted by the circuit breaker: "
                 f"{self._circuit_breaker.reason(agent.id)}"
             )
+
+        # 0.3 budget pre-gate (ASI08): refuse once a cumulative ceiling is reached.
+        if self._budget is not None:
+            try:
+                self._budget.check(self._budget_key(agent, request_id))
+            except BudgetExceeded as exc:
+                event.error = f"budget_exceeded: {exc.dimension}"
+                self._emit(event)
+                if self._trip_breaker_on_budget and self._circuit_breaker is not None:
+                    self._circuit_breaker.trip(agent.id, str(exc))
+                raise
 
         # 0.5 task/intent scope — JIT least privilege for one specific task (P6).
         # Enforced on top of standing capabilities; it can only tighten.
@@ -280,6 +324,9 @@ class AgentRuntime:
         # 4. dispatch + 5. audit
         try:
             result = registered.func(**kwargs)
+            # charge one call against the budget (check() already admitted it).
+            if self._budget is not None:
+                self._budget.charge(self._budget_key(agent, request_id), calls=1)
             # Propagate taint onto the result so the next call inherits it.
             if self._tracker is not None:
                 out_label = self._tracker.record_output(

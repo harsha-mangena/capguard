@@ -32,6 +32,7 @@ Legend: ✅ done · 🔜 next · 🔭 later · status against the 2026 OWASP Top
 - ✅ **Unified `capguard` CLI** — `bench` / `agentdojo` / `audit verify` / `packs list|show|lint` / `mcp-scan` / `proxy --check`, each with a CI-meaningful exit code.
 - ✅ **OAuth 2.1 resource-server auth on the HTTP MCP boundary** — bearer/JWT verify (alg-pinned HS256, audience per RFC 8707), `401`/`403` with `WWW-Authenticate`, Protected Resource Metadata (RFC 9728); composes with the signed-identity gate. *(ASI03, ASI07)*
 - ✅ **Advisory detector hooks** — `Detector` protocol + `CallableDetector` (wire any classifier) + built-in regex-injection / PII heuristics; `Signal(...)` DSL predicate. Deterministic-first: advisory-only, fail-open, can only tighten. *(ASI01)*
+- ✅ **Budgets & quotas** — cumulative call/token/$ ceilings per agent/session (cumulative or rolling window); overspend trips the circuit breaker. Closes unbounded consumption / doom-spirals. *(ASI08)*
 
 > **Every one of the ten OWASP ASI risks now has a deterministic shipped mechanism (all ✓).** 143 tests passing, 1 skipped (Docker).
 
@@ -79,7 +80,7 @@ CLI, and signed/pinned pack distribution.
 ### Rogue-agent detection *(ASI10)* — core shipped
 Deterministic anomaly detection + circuit breaker ship (`capguard.monitor`). Next:
 - Richer sequence models (n-gram / order-aware tool-call patterns, privilege-drift scoring) as *advisory* signals feeding the deterministic breaker.
-- Per-agent/session token & $ budgets feeding back into the DSL as a `RATE_LIMIT`/`DENY` effect.
+- Cumulative budgets ship (`capguard.budget`, trips the breaker). Next: surface live spend in the audit stream + a per-tool sub-budget `BUDGET` DSL effect.
 
 ### Full provenance / taint
 - Move from tool-boundary tagging to propagation across tool I/O (toward CaMeL-style soundness), while keeping it a library hook, not a forked interpreter.

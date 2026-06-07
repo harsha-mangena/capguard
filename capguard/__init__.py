@@ -278,6 +278,16 @@ __all__ += [
     "RegexInjectionDetector",
 ]
 
+# Budgets & quotas (ASI08 / unbounded consumption)
+from .budget import Budget, BudgetExceeded, BudgetLedger, Spend  # noqa: E402
+
+__all__ += [
+    "Budget",
+    "BudgetExceeded",
+    "BudgetLedger",
+    "Spend",
+]
+
 # Sandboxed execution (ASI05)
 from .sandbox import (  # noqa: E402
     DenyBackend,

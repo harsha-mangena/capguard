@@ -4,26 +4,40 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "capguard"
-version = "0.1.0.dev0"
+version = "0.1.0"
 description = "Deterministic security runtime for AI agents: attenuable capabilities, argument-level policy, data provenance, MCP guard + proxy, sandboxed execution, and tamper-evident audit."
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
 license = { text = "Apache-2.0" }
 authors = [{ name = "Vamsi Sai Ranga Mangina", email = "44197358+harsha-mangena@users.noreply.github.com" }]
-keywords = ["ai-agents", "security", "mcp", "least-privilege", "owasp", "capabilities", "prompt-injection"]
+keywords = ["ai-agents", "security", "mcp", "least-privilege", "owasp", "capabilities", "prompt-injection", "agentic"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Security",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Typing :: Typed",
+]
 dependencies = [
   "pydantic>=2.7",
 ]
 
 [project.optional-dependencies]
-# signed plugins + YAML policy packs (legacy/optional)
+# signed plugins / asymmetric (Ed25519) identity signing for cross-trust-domain use
 crypto = ["cryptography>=43.0"]
-yaml = ["pyyaml>=6.0"]
-# verifiable identity with asymmetric (Ed25519) signing for cross-trust-domain use
 identity = ["cryptography>=43.0"]
+# YAML policy packs
+yaml = ["pyyaml>=6.0"]
 # live + real-AgentDojo benchmark adapter
 agentdojo = ["agentdojo>=0.1"]
-dev = ["pytest>=8.2", "hypothesis>=6.0", "ruff>=0.4"]
+# docs site
+docs = ["mkdocs-material>=9.5"]
+dev = ["pytest>=8.2", "hypothesis>=6.0", "ruff>=0.5", "build>=1.2", "pyyaml>=6.0"]
 
 [project.scripts]
 capguard = "capguard.cli:main"
@@ -31,7 +45,11 @@ capguard-bench = "capguard.bench.run_bench:main"
 capguard-agentdojo = "capguard.bench.run_agentdojo:main"
 
 [project.urls]
-Homepage = "https://github.com/harsha-mangena/probe"
+Homepage = "https://github.com/harsha-mangena/capguard"
+Repository = "https://github.com/harsha-mangena/capguard"
+Documentation = "https://github.com/harsha-mangena/capguard#readme"
+Changelog = "https://github.com/harsha-mangena/capguard/blob/main/CHANGELOG.md"
+Issues = "https://github.com/harsha-mangena/capguard/issues"
 
 [tool.setuptools.packages.find]
 include = ["capguard*"]
@@ -39,3 +57,18 @@ include = ["capguard*"]
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B"]
+# E501 long lines (prose-y docstrings), E741 ambiguous name `l` (info-flow labels)
+ignore = ["E501", "E741", "B008"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["E402", "F401"]
+# tests use terse handlers / broad raises by design
+"tests/*" = ["B011", "B017", "E701", "E702", "E731"]
+"capguard/bench/*" = ["E731"]

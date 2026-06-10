@@ -1,0 +1,9 @@
+# Default owner for everything in the repo.
+*       @harsha-mangena
+
+# Security-critical cores get extra scrutiny.
+/capguard/core.py        @harsha-mangena
+/capguard/runtime.py     @harsha-mangena
+/capguard/identity.py    @harsha-mangena
+/capguard/mcp_auth.py    @harsha-mangena
+/capguard/a2a.py         @harsha-mangena

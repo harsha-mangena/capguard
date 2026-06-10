@@ -13,12 +13,13 @@ import tempfile
 from typing import Callable, Dict, List, Tuple
 
 from capguard import (
+    NOT,
+    UNTRUSTED_WEB,
     AgentIdentity,
     AgentRuntime,
     Arg,
     Capability,
     Effect,
-    NOT,
     Policy,
     PolicyEngine,
     Provenance,
@@ -27,7 +28,6 @@ from capguard import (
     Severity,
     ToolRegistry,
     ToolSpec,
-    UNTRUSTED_WEB,
     tool_is,
 )
 from capguard.approval import ApprovalStore
@@ -112,8 +112,6 @@ def build() -> Tuple[List[Scenario], AgentRuntime, Dict[str, Callable]]:
         default_agent=agent,
         tracker=ProvenanceTracker(),  # P1: propagate taint across tool I/O
     )
-
-    T = lambda: "trusted"  # noqa: E731
 
     scenarios = [
         Scenario(

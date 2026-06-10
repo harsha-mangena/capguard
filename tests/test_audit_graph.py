@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
-import pytest
-
 from capguard import (
+    UNTRUSTED_WEB,
     AgentIdentity,
     AgentRuntime,
     Capability,
     ProvenanceTracker,
     Severity,
     ToolRegistry,
-    ToolSpec,
-    UNTRUSTED_WEB,
     build_flow_graph,
     flow_graph_from_file,
     tainted_sink_calls,

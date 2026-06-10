@@ -1,4 +1,4 @@
-__version__ = "0.1.0.dev0"
+__version__ = "0.1.0"
 
 from .core import (
     AgentIdentity,
@@ -11,18 +11,16 @@ from .core import (
     Severity,
     ToolSpec,
 )
-from .registry import ToolRegistry
-from .runtime import AgentRuntime
 from .policy_dsl import (
-    ANY_TOOL,
     AND,
+    ANY_TOOL,
+    NOT,
+    OR,
     Arg,
     CallContext,
     Decision,
     Effect,
     Flow,
-    NOT,
-    OR,
     PolicyEngine,
     Provenance,
     Rule,
@@ -32,16 +30,18 @@ from .policy_dsl import (
     tool_is,
 )
 from .provenance import (
-    Confidentiality,
-    Label,
-    ProvenanceTracker,
-    Trust,
     SECRET,
     TRUSTED,
     UNTRUSTED_TOOL,
     UNTRUSTED_WEB,
+    Confidentiality,
+    Label,
+    ProvenanceTracker,
+    Trust,
     combine_all,
 )
+from .registry import ToolRegistry
+from .runtime import AgentRuntime
 
 __all__ = [
     "AgentIdentity",
@@ -84,6 +84,13 @@ __all__ = [
 ]
 
 # MCP security engine
+# Replay-safe approvals
+from .approval import (  # noqa: E402
+    ApprovalStatus,
+    ApprovalStore,
+    ApprovalToken,
+    args_digest,
+)
 from .mcp_guard import (  # noqa: E402
     MCPGuard,
     MCPSecurityError,
@@ -94,14 +101,6 @@ from .mcp_guard import (  # noqa: E402
     deny_by_default_mapper,
     explicit_mapper,
     scan_poisoning,
-)
-
-# Replay-safe approvals
-from .approval import (  # noqa: E402
-    ApprovalStatus,
-    ApprovalStore,
-    ApprovalToken,
-    args_digest,
 )
 
 __all__ += [

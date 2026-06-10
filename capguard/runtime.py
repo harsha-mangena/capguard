@@ -19,6 +19,7 @@ from __future__ import annotations
 from typing import Any, Callable, Dict, List, Optional
 
 from .audit import AuditEvent, AuditSink, digest
+from .budget import BudgetExceeded, BudgetLedger
 from .core import (
     AgentIdentity,
     ApprovalRequired,
@@ -28,7 +29,6 @@ from .core import (
     PolicyDecision,
     ToolSpec,
 )
-from .budget import BudgetExceeded, BudgetLedger
 from .detectors import Detector
 from .identity import Signer
 from .monitor import CIRCUIT_OPEN_ERROR, CircuitBreaker

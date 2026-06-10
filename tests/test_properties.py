@@ -16,13 +16,12 @@ space with Hypothesis. For a security kernel the laws are the product:
 from __future__ import annotations
 
 import pytest
-from hypothesis import given, settings
+from hypothesis import given
 from hypothesis import strategies as st
 
 from capguard import Confidentiality, Label, Trust
-from capguard.core import Capability, CapabilityViolation, PolicyDecision
 from capguard.audit import AuditEvent, MemorySink, verify_chain
-
+from capguard.core import Capability, CapabilityViolation, PolicyDecision
 
 # --------------------------------------------------------------------------- #
 # strategies

@@ -12,7 +12,6 @@ from capguard import (
     Effect,
     PolicyEngine,
     Provenance,
-    ProvenanceTracker,
     Rule,
     Severity,
     ToolRegistry,

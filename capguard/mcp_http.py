@@ -26,18 +26,18 @@ import secrets
 import threading
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any, Dict, List, Mapping, Optional, Sequence
+from typing import Any, Dict, List, Mapping, Optional
 
-from .mcp_proxy import MCPProxy, PROTOCOL_VERSION, jrpc_request
-from .mcp_guard import MCPToolDef
 from .mcp_auth import (
+    WELL_KNOWN_PRM_PATH,
     ProtectedResourceMetadata,
     TokenError,
     TokenVerifier,
-    WELL_KNOWN_PRM_PATH,
     extract_bearer,
     www_authenticate,
 )
+from .mcp_guard import MCPToolDef
+from .mcp_proxy import PROTOCOL_VERSION, MCPProxy, jrpc_request
 
 
 # --------------------------------------------------------------------------- #

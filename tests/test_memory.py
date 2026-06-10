@@ -5,6 +5,8 @@ from __future__ import annotations
 import pytest
 
 from capguard import (
+    SECRET,
+    UNTRUSTED_WEB,
     AgentIdentity,
     AgentRuntime,
     Capability,
@@ -18,8 +20,6 @@ from capguard import (
     Taint,
     ToolRegistry,
     Trust,
-    UNTRUSTED_WEB,
-    SECRET,
     tool_is,
 )
 

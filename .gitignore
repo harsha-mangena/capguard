@@ -4,6 +4,12 @@ __pycache__/
 *.egg-info/
 build/
 dist/
+# build staging / artifacts
+capguard-*/
+*.whl
+*.tar.gz
+.tmp-*
+site/
 .venv/
 venv/
 *.jsonl

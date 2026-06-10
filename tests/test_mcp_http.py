@@ -7,8 +7,6 @@ import threading
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-import pytest
-
 from capguard import (
     AgentIdentity,
     Capability,

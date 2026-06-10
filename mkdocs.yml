@@ -1,0 +1,34 @@
+site_name: CapGuard
+site_description: The deterministic security runtime for AI agents.
+site_url: https://github.com/harsha-mangena/capguard
+repo_url: https://github.com/harsha-mangena/capguard
+repo_name: harsha-mangena/capguard
+
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+  features:
+    - content.code.copy
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+
+markdown_extensions:
+  - admonition
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Quickstart: quickstart.md
+  - MCP proxy: mcp-proxy.md
+  - CLI reference: cli.md
+  - Security model: security-model.md
+  - Benchmark: BENCHMARK_RESULTS.md
+  - Strategy: STRATEGY.md

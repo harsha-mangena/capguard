@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List
 
 from capguard import AgentIdentity, ApprovalRequired, CapabilityViolation
 from capguard.runtime import AgentRuntime
@@ -147,7 +147,8 @@ def run(scenarios: List[Scenario], runtime: AgentRuntime, executors: Dict[str, C
                 base_out = executors[ch.source.tool](**ch.source.args)
             except Exception:  # noqa: BLE001
                 base_out = "x"
-            base_args = dict(ch.sink.args); base_args[ch.into] = base_out
+            base_args = dict(ch.sink.args)
+            base_args[ch.into] = base_out
             if _direct_call(executors, Call(ch.sink.tool, base_args)):
                 rep.attacks_succeeded_baseline += 1
             # guarded: run source through the runtime so the tracker taints its

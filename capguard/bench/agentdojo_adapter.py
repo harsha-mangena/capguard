@@ -134,7 +134,7 @@ def evaluate_suite(name: str, version: str = DEFAULT_VERSION) -> EvalResult:
     res = EvalResult(suite=name)
 
     # utility: replay benign user-task ground truth with TRUSTED provenance
-    for uid, ut in suite.user_tasks.items():
+    for _uid, ut in suite.user_tasks.items():
         calls = _ground_truth_calls(ut, env)
         if calls is None:
             res.skipped += 1
@@ -185,8 +185,10 @@ def format_results(results: List[EvalResult]) -> str:
     tot_u = tot_up = tot_i = tot_b = 0
     for r in results:
         lines.append(f"{r.suite:<12}{r.n_user:>6}{r.n_injection:>6}{r.utility:>9.1%}{r.asr:>10.1%}")
-        tot_u += r.n_user; tot_up += r.utility_passed
-        tot_i += r.n_injection; tot_b += r.attacks_blocked
+        tot_u += r.n_user
+        tot_up += r.utility_passed
+        tot_i += r.n_injection
+        tot_b += r.attacks_blocked
     util = tot_up / max(1, tot_u)
     asr = (tot_i - tot_b) / max(1, tot_i)
     lines += ["-" * 44,

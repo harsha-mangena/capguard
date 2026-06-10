@@ -23,8 +23,8 @@ testable out of the box.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Protocol
+from dataclasses import dataclass
+from typing import Any, Callable, List, Optional, Protocol
 
 from .policy_dsl import CallContext
 

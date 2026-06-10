@@ -54,7 +54,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Union
 
-from .core import Capability, Severity
+from .core import Capability
 from .policy_dsl import (
     AND,
     ANY_TOOL,

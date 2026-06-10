@@ -1,14 +1,26 @@
 # CapGuard — the deterministic security runtime for AI agents
 
+[![CI](https://github.com/harsha-mangena/capguard/actions/workflows/ci.yml/badge.svg)](https://github.com/harsha-mangena/capguard/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/capguard.svg)](https://pypi.org/project/capguard/)
+[![Python](https://img.shields.io/pypi/pyversions/capguard.svg)](https://pypi.org/project/capguard/)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Tests](https://img.shields.io/badge/tests-206%20passing-brightgreen.svg)](#)
+[![ASR](https://img.shields.io/badge/benchmark-0%25%20ASR%20%2F%20100%25%20utility-brightgreen.svg)](docs/BENCHMARK_RESULTS.md)
+
 > Least privilege for AI agents, **enforced**. A non-bypassable layer that sits inline on every tool call and every MCP message.
+
+```bash
+pip install capguard
+```
 
 CapGuard is an embeddable Python SDK that makes any agent stack (LangGraph, CrewAI, AutoGen, OpenAI Agents, custom loops, or raw MCP) safe by default. It is **not** a prompt classifier and **not** a guardrail that tries to guess intent. It is a deterministic enforcement runtime: it decides — from capabilities, policy, and data provenance — whether a concrete tool call is allowed, denied, or needs human approval, and it backs that decision with hard isolation and a tamper-evident audit trail.
 
 **Status:** active development. Core is implemented and tested. **206 tests passing** (1 skipped: Docker backend); deterministic security benchmark at **0% attack-success rate / 100% utility / ~0.04 ms per-call overhead**. On the **real AgentDojo benchmark** (97 user + 35 injection tasks across all four suites), one general provenance profile holds **ASR 0.0% at 100% utility** under deterministic ground-truth replay. **All ten OWASP ASI risks now carry a shipped mechanism — every row is ✓.**
 
 ```bash
-pip install -e .                 # or: poetry install
-PYTHONPATH=. pytest -q           # 206 passed, 1 skipped
+pip install capguard              # or, from source: pip install -e ".[dev,yaml]"
+pytest -q                         # 206 passed, 1 skipped
+python examples/demo_poison_strip.py   # 60-second demo: poisoned MCP tool stripped + guarded transfer
 
 capguard bench                       # scripted security benchmark (exit non-zero on regression)
 capguard agentdojo                   # real AgentDojo eval (pip install agentdojo)

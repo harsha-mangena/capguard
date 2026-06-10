@@ -1,0 +1,14 @@
+{
+  "tools": [
+    {
+      "name": "get_weather",
+      "description": "Return the current weather for a city.",
+      "inputSchema": {"type": "object", "properties": {"city": {"type": "string"}}}
+    },
+    {
+      "name": "search_docs",
+      "description": "Search internal documentation and return matching snippets.",
+      "inputSchema": {"type": "object", "properties": {"query": {"type": "string"}}}
+    }
+  ]
+}

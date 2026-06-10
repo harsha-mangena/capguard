@@ -6,10 +6,8 @@ import json
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-import pytest
-
-from capguard.cli import main
 from capguard.audit import AuditEvent, HashChainedSink
+from capguard.cli import main
 from capguard.core import PolicyDecision
 
 

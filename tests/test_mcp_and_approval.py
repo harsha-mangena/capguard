@@ -2,16 +2,15 @@ from __future__ import annotations
 
 import pytest
 
-from capguard import AgentIdentity, Capability, Policy, PolicyEngine, Rule, Severity, Effect, Arg, tool_is
+from capguard import AgentIdentity, Arg, Capability, Effect, PolicyEngine, Rule, Severity, tool_is
 from capguard.approval import ApprovalStore
 from capguard.audit import MemorySink, verify_chain
 from capguard.core import ApprovalRequired
 from capguard.mcp_guard import (
     MCPGuard,
     MCPSecurityError,
-    MCPToolDef,
     MCPThreat,
-    deny_by_default_mapper,
+    MCPToolDef,
     explicit_mapper,
     scan_poisoning,
 )

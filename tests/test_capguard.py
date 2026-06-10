@@ -9,7 +9,6 @@ import pytest
 from capguard import (
     AgentIdentity,
     AgentRuntime,
-    ApprovalRequired,
     Arg,
     Capability,
     CapabilityViolation,

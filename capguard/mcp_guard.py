@@ -37,7 +37,7 @@ from .audit import AuditSink
 from .core import Capability, Policy, Severity, ToolSpec
 from .policy_dsl import PolicyEngine
 from .registry import ToolRegistry
-from .runtime import AgentRuntime, AgentIdentity
+from .runtime import AgentIdentity, AgentRuntime
 
 
 class MCPThreat(str, Enum):
@@ -234,7 +234,7 @@ class MCPGuard:
                     "tool definition changed since it was pinned", Severity.CRITICAL))
 
             # 3. shadowing: same tool name or identical description on another server
-            for other_key, other in self._defs.items():
+            for _other_key, other in self._defs.items():
                 if other.server_id == server_id:
                     continue
                 if _normalize(other.name) == _normalize(td.name):

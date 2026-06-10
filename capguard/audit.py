@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import threading
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
@@ -104,6 +105,56 @@ class PrintSink:
         event.seal(self._head)
         self._head = event.hash or GENESIS
         print(f"[AUDIT] {event.model_dump_json()}")
+
+
+class MultiSink:
+    """Fan an event out to several sinks. Each sink gets its own copy and seals
+    it into its own independent chain, so a local file sink and a cloud sink each
+    hold a self-consistent, identically-ordered, verifiable chain."""
+
+    def __init__(self, *sinks: "AuditSink") -> None:
+        self._sinks = list(sinks)
+
+    def __call__(self, event: AuditEvent) -> None:
+        for sink in self._sinks:
+            sink(event.model_copy(deep=True))
+
+
+class HttpSink:
+    """Mirror audit events to a cloud endpoint (the control plane's ingest).
+
+    **Fail-open by design:** the local sink is the source of truth and the
+    enforcement gate never depends on this. If the cloud is unreachable, events
+    are counted as dropped and the agent keeps running, fully enforced — the
+    control plane only *observes*. Each event is hash-chained here too, so the
+    server can ``verify_chain`` what it received.
+    """
+
+    def __init__(self, url: str, *, token: Optional[str] = None, timeout: float = 5.0,
+                 on_error: Optional[Callable[[Exception], None]] = None) -> None:
+        self._url = url
+        self._token = token
+        self._timeout = timeout
+        self._on_error = on_error
+        self._head = GENESIS
+        self._lock = threading.Lock()
+        self.dropped = 0
+
+    def __call__(self, event: AuditEvent) -> None:
+        with self._lock:
+            event.seal(self._head)
+            self._head = event.hash or GENESIS
+        try:
+            data = event.model_dump_json().encode()
+            headers = {"Content-Type": "application/json"}
+            if self._token:
+                headers["Authorization"] = f"Bearer {self._token}"
+            req = urllib.request.Request(self._url, data=data, method="POST", headers=headers)
+            urllib.request.urlopen(req, timeout=self._timeout).close()
+        except Exception as exc:  # noqa: BLE001 - cloud is a mirror, not the gate
+            self.dropped += 1
+            if self._on_error is not None:
+                self._on_error(exc)
 
 
 def verify_chain(events: List[AuditEvent]) -> bool:

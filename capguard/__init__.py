@@ -315,6 +315,27 @@ __all__ += [
     "tainted_sink_calls",
 ]
 
+# Audit sinks (incl. cloud ingest)
+from .audit import (  # noqa: E402
+    AuditEvent,
+    HashChainedSink,
+    HttpSink,
+    MemorySink,
+    MultiSink,
+    verify_chain,
+    verify_file,
+)
+
+__all__ += [
+    "AuditEvent",
+    "HashChainedSink",
+    "HttpSink",
+    "MemorySink",
+    "MultiSink",
+    "verify_chain",
+    "verify_file",
+]
+
 # Sandboxed execution (ASI05)
 from .sandbox import (  # noqa: E402
     DenyBackend,

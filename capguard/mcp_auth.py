@@ -155,6 +155,133 @@ class HMACJWTVerifier:
         return f"{h}.{p}.{sig}"
 
 
+def _parse_jwt_unverified(token: str):
+    parts = token.split(".")
+    if len(parts) != 3:
+        raise TokenError("malformed JWT")
+    try:
+        header = json.loads(_b64url_decode(parts[0]))
+        payload = json.loads(_b64url_decode(parts[1]))
+    except Exception as exc:  # noqa: BLE001
+        raise TokenError("unreadable JWT") from exc
+    return header, payload, parts
+
+
+def _claims_from_payload(payload: Mapping[str, Any], audience: Optional[str], leeway: int) -> "TokenClaims":
+    exp = payload.get("exp")
+    if exp is not None and time.time() > float(exp) + leeway:
+        raise TokenError("token expired")
+    if audience is not None:
+        aud = payload.get("aud")
+        auds = aud if isinstance(aud, list) else ([aud] if aud else [])
+        if audience not in auds:
+            raise TokenError("token audience does not match this resource")
+    scope = payload.get("scope", "")
+    scopes = frozenset(scope.split()) if isinstance(scope, str) else frozenset(scope or [])
+    return TokenClaims(subject=payload.get("sub", ""), scopes=scopes,
+                       audience=payload.get("aud"), expires_at=exp, raw=dict(payload))
+
+
+class Ed25519JWTVerifier:
+    """Verify (and optionally mint) EdDSA JWTs (RFC 8037) — asymmetric, so a
+    resource server can verify tokens minted by an external authorization server
+    using only its public key. Requires the ``cryptography`` package.
+    """
+
+    alg = "EdDSA"
+
+    def __init__(self, public_key: Any = None, *, private_key: Any = None,
+                 audience: Optional[str] = None, leeway_seconds: int = 30,
+                 kid: str = "ed25519-1") -> None:
+        try:
+            from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        except Exception as exc:  # noqa: BLE001
+            raise TokenError("Ed25519JWTVerifier requires the 'cryptography' package") from exc
+        if private_key is None and public_key is None:
+            private_key = Ed25519PrivateKey.generate()
+        self._priv = private_key
+        self._pub = public_key or (private_key.public_key() if private_key else None)
+        self._audience = audience
+        self._leeway = leeway_seconds
+        self._kid = kid
+
+    def _pub_raw(self) -> bytes:
+        from cryptography.hazmat.primitives import serialization
+        return self._pub.public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+
+    def public_jwk(self) -> Dict[str, Any]:
+        return {"kty": "OKP", "crv": "Ed25519", "use": "sig", "alg": "EdDSA",
+                "kid": self._kid, "x": _b64url_encode(self._pub_raw())}
+
+    def jwks(self) -> Dict[str, Any]:
+        return {"keys": [self.public_jwk()]}
+
+    def mint(self, subject: str, *, scopes=(), audience: Optional[str] = None,
+             ttl_seconds: int = 3600, extra: Optional[Mapping[str, Any]] = None) -> str:
+        if self._priv is None:
+            raise TokenError("this verifier has no private key (verify-only)")
+        now = int(time.time())
+        payload: Dict[str, Any] = {"sub": subject, "scope": " ".join(scopes),
+                                   "iat": now, "exp": now + ttl_seconds}
+        aud = audience or self._audience
+        if aud:
+            payload["aud"] = aud
+        if extra:
+            payload.update(extra)
+        header = {"alg": "EdDSA", "typ": "JWT", "kid": self._kid}
+        h = _b64url_encode(json.dumps(header, separators=(",", ":")).encode())
+        p = _b64url_encode(json.dumps(payload, separators=(",", ":")).encode())
+        sig = _b64url_encode(self._priv.sign(f"{h}.{p}".encode()))
+        return f"{h}.{p}.{sig}"
+
+    def verify(self, token: str) -> TokenClaims:
+        from cryptography.exceptions import InvalidSignature
+        header, payload, parts = _parse_jwt_unverified(token)
+        if header.get("alg") != "EdDSA":
+            raise TokenError(f"unexpected JWT alg {header.get('alg')!r}; only EdDSA accepted")
+        try:
+            self._pub.verify(_b64url_decode(parts[2]), f"{parts[0]}.{parts[1]}".encode())
+        except (InvalidSignature, Exception) as exc:  # noqa: BLE001
+            raise TokenError("EdDSA signature invalid") from exc
+        return _claims_from_payload(payload, self._audience, self._leeway)
+
+
+class JWKSVerifier:
+    """Verify EdDSA JWTs against a JWKS (a set of OKP/Ed25519 public keys),
+    selecting the key by the token's ``kid`` — the standard way a resource server
+    trusts an external authorization server's published keys."""
+
+    alg = "EdDSA"
+
+    def __init__(self, jwks: Mapping[str, Any], *, audience: Optional[str] = None,
+                 leeway_seconds: int = 30) -> None:
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+        self._audience = audience
+        self._leeway = leeway_seconds
+        self._keys: Dict[str, Any] = {}
+        for jwk in jwks.get("keys", []):
+            if jwk.get("kty") == "OKP" and jwk.get("crv") == "Ed25519":
+                self._keys[jwk.get("kid", "")] = Ed25519PublicKey.from_public_bytes(
+                    _b64url_decode(jwk["x"]))
+        if not self._keys:
+            raise TokenError("JWKS contains no usable Ed25519 (OKP) keys")
+
+    def verify(self, token: str) -> TokenClaims:
+        from cryptography.exceptions import InvalidSignature
+        header, payload, parts = _parse_jwt_unverified(token)
+        if header.get("alg") != "EdDSA":
+            raise TokenError(f"unexpected JWT alg {header.get('alg')!r}; only EdDSA accepted")
+        key = self._keys.get(header.get("kid", "")) or (
+            next(iter(self._keys.values())) if len(self._keys) == 1 else None)
+        if key is None:
+            raise TokenError(f"no JWKS key matches kid {header.get('kid')!r}")
+        try:
+            key.verify(_b64url_decode(parts[2]), f"{parts[0]}.{parts[1]}".encode())
+        except (InvalidSignature, Exception) as exc:  # noqa: BLE001
+            raise TokenError("EdDSA signature invalid for the selected JWKS key") from exc
+        return _claims_from_payload(payload, self._audience, self._leeway)
+
+
 # --------------------------------------------------------------------------- #
 # RFC 9728 Protected Resource Metadata + WWW-Authenticate
 # --------------------------------------------------------------------------- #

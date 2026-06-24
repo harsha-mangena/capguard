@@ -245,7 +245,9 @@ __all__ += [
 
 # OAuth 2.1 resource-server auth for the HTTP MCP boundary (RFC 9728 / RFC 8707)
 from .mcp_auth import (  # noqa: E402
+    Ed25519JWTVerifier,
     HMACJWTVerifier,
+    JWKSVerifier,
     ProtectedResourceMetadata,
     StaticTokenVerifier,
     TokenClaims,
@@ -253,7 +255,9 @@ from .mcp_auth import (  # noqa: E402
 )
 
 __all__ += [
+    "Ed25519JWTVerifier",
     "HMACJWTVerifier",
+    "JWKSVerifier",
     "ProtectedResourceMetadata",
     "StaticTokenVerifier",
     "TokenClaims",

@@ -33,7 +33,7 @@ capability, policy, or provenance — not because a classifier flagged it.
 
 ## Numbers
 
-- **268 test functions**; optional integration tests self-skip when their
+- **272 test functions**; optional integration tests self-skip when their
   dependencies or Docker are unavailable.
 - Deterministic security benchmark: **0% attack-success rate / 100% utility /
   ~0.04 ms per call**.

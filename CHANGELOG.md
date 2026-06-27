@@ -7,7 +7,7 @@ versioning pre-1.0.
 ## [0.1.0] — 2026-06
 
 Initial release candidate. A deterministic security runtime for AI agents that
-sits inline on every tool call and MCP message. The repo contains **268 test
+sits inline on every tool call and MCP message. The repo contains **272 test
 functions**; optional integration tests self-skip when their dependencies or
 Docker are unavailable. Security benchmark: **0% attack-success rate / 100%
 utility / ~0.04 ms per call**; real AgentDojo (97 user + 35 injection tasks):
@@ -39,7 +39,8 @@ ASI-2026 risk has a shipped mechanism.
 - OAuth 2.1 resource-server auth on the HTTP boundary (RFC 9728 PRM, RFC 8707
   audience, alg-pinned HS256, EdDSA, or RS256 JWTs, OIDC/OAuth issuer metadata
   discovery, JWKS verification with refresh-on-key-rotation, and HTTPS/URL
-  validation for external authorization servers).
+  validation for external authorization servers). Non-loopback HTTP serving
+  requires auth unless explicitly overridden for lab use.
 
 ### Operations & safety
 - Rogue-agent anomaly detection + circuit-breaker kill switch.

@@ -18,6 +18,7 @@ from capguard import (
     MCPProxy,
     MCPToolDef,
     Severity,
+    StaticTokenVerifier,
 )
 from capguard.mcp_guard import explicit_mapper
 from capguard.mcp_http import validate_remote_mcp_url
@@ -92,6 +93,25 @@ def test_http_initialize_returns_session_id():
             assert r.headers.get("Mcp-Session-Id")        # issued on initialize
     finally:
         srv.stop()
+
+
+def test_http_server_rejects_unauthenticated_non_loopback_bind():
+    with pytest.raises(ValueError, match="unauthenticated non-loopback"):
+        MCPHttpServer(_guarded_proxy(), host="0.0.0.0")
+
+
+def test_http_server_allows_non_loopback_bind_with_auth_or_explicit_override():
+    authed = MCPHttpServer(
+        _guarded_proxy(), host="0.0.0.0",
+        token_verifier=StaticTokenVerifier({"tok": {"subject": "svc"}}),
+    )
+    authed.stop()
+
+    lab = MCPHttpServer(
+        _guarded_proxy(), host="0.0.0.0",
+        allow_unauthenticated_remote=True,
+    )
+    lab.stop()
 
 
 # --------------------------------------------------------------------------- #

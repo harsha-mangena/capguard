@@ -36,6 +36,11 @@ Plaintext non-loopback development endpoints require `allow_insecure_http`.
 The same shared outbound URL policy also protects auth metadata/JWKS fetches,
 cloud audit ingest, and signed policy sync.
 
+When serving the guarded proxy over HTTP, unauthenticated mode is loopback-only.
+Binding to `0.0.0.0`, a public IP, or any other non-loopback interface requires
+a configured token verifier; `allow_unauthenticated_remote=True` exists only as
+an explicit lab override.
+
 ## OAuth on the HTTP boundary
 
 The HTTP server is an OAuth 2.1 **resource server**: it validates bearer tokens,

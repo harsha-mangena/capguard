@@ -244,11 +244,12 @@ __all__ += [
 ]
 
 # Streamable-HTTP MCP transport (guard remote MCP servers / serve the proxy over HTTP)
-from .mcp_http import HttpDownstream, MCPHttpServer, validate_remote_mcp_url  # noqa: E402
+from .mcp_http import HttpDownstream, MCPHttpServer, validate_http_server_auth, validate_remote_mcp_url  # noqa: E402
 
 __all__ += [
     "HttpDownstream",
     "MCPHttpServer",
+    "validate_http_server_auth",
     "validate_remote_mcp_url",
 ]
 

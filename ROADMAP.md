@@ -28,15 +28,16 @@ Legend: ✅ done · 🔜 next · 🔭 later · status against the 2026 OWASP Top
 - ✅ **Task/intent-scoped capability envelopes** — PAuth-style signed, expiring, per-argument-constrained JIT grants; issuing only attenuates. *(ASI02, ASI03)*
 - ✅ **Provenance-preserving memory / RAG guard** — taint survives the write→read round-trip; optional deny-untrusted-writes. *(ASI06)*
 - ✅ **Policy-pack compiler** — declarative YAML/JSON/dict profiles → `PolicyEngine` + capability templates; builtin `owasp-baseline` / `finance` / `data-exfil`.
-- ✅ **Streamable-HTTP MCP transport** — guard remote/hosted MCP servers (`HttpDownstream`) and serve the guarded proxy over HTTP (`MCPHttpServer`), stdlib-only. *(ASI04, ASI07)*
+- ✅ **Streamable-HTTP MCP transport** — guard remote/hosted MCP servers (`HttpDownstream`) and serve the guarded proxy over HTTP (`MCPHttpServer`), stdlib-only; remote MCP URLs require HTTPS outside loopback and reject userinfo/fragments/non-public IP literals by default. *(ASI04, ASI07)*
 - ✅ **Unified `capguard` CLI** — `bench` / `agentdojo` / `audit verify` / `packs list|show|lint` / `mcp-scan` / `proxy --check`, each with a CI-meaningful exit code.
-- ✅ **OAuth 2.1 resource-server auth on the HTTP MCP boundary** — bearer/JWT verify (alg-pinned HS256, audience per RFC 8707), `401`/`403` with `WWW-Authenticate`, Protected Resource Metadata (RFC 9728); composes with the signed-identity gate. *(ASI03, ASI07)*
+- ✅ **OAuth 2.1 resource-server auth on the HTTP MCP boundary** — bearer/JWT verify (alg-pinned HS256 or RS256/EdDSA + JWKS discovered from OIDC/OAuth issuer metadata, with key refresh and fetch-URL hardening, audience per RFC 8707), `401`/`403` with `WWW-Authenticate`, Protected Resource Metadata (RFC 9728); composes with the signed-identity gate. *(ASI03, ASI07)*
+- ✅ **Shared outbound URL safety** — remote MCP, auth metadata/JWKS, cloud audit ingest, and signed policy sync all reject userinfo/fragments, plaintext non-loopback HTTP, and non-public IP literals by default. *(ASI04, ASI08)*
 - ✅ **Advisory detector hooks** — `Detector` protocol + `CallableDetector` (wire any classifier) + built-in regex-injection / PII heuristics; `Signal(...)` DSL predicate. Deterministic-first: advisory-only, fail-open, can only tighten. *(ASI01)*
 - ✅ **Budgets & quotas** — cumulative call/token/$ ceilings per agent/session (cumulative or rolling window); overspend trips the circuit breaker. Closes unbounded consumption / doom-spirals. *(ASI08)*
 - ✅ **Signed inter-agent (A2A) messages** — signed message envelopes (anti impersonation/tamper), single-use nonce + expiry (anti-replay), and per-message capability attenuation across hops (the scope semantics A2A/Transaction-Tokens omit); inbound payloads tainted. *(ASI07)*
 - ✅ **Forensic provenance reconstruction** — rebuilds the data-flow graph from the tamper-evident audit log (result-digest → argument-digest edges + trust labels) and surfaces untrusted-source → sink paths for incident response; `capguard audit flows`. *(ASI10 evidence)*
 
-> **Every one of the ten OWASP ASI risks now has a deterministic shipped mechanism (all ✓).** 143 tests passing, 1 skipped (Docker).
+> **Every one of the ten OWASP ASI risks now has a deterministic shipped mechanism (all ✓).** The repo currently contains 268 test functions; optional integration tests self-skip when their dependencies or Docker are unavailable.
 
 ---
 
@@ -54,14 +55,15 @@ replay also ships (`run_agentdojo`, ASR 0% @ 100% utility). Next:
 
 ### 2. Ed25519/SPIFFE identity in production
 Signed identity + delegation attenuation ship (HMAC default, Ed25519 optional).
+RS256 and EdDSA JWT verification from JWKS ship for external authorization
+servers, including OIDC/OAuth metadata discovery and key refresh on rotation.
 Next: JWT-SVID/SPIFFE issuance integration, OIDC principal binding, map to the
 OWASP Non-Human-Identity Top 10, and an AIP-style verifiable-delegation envelope.
 
 ### 3. Streamable-HTTP MCP transport — shipped (JSON mode + OAuth)
 `HttpDownstream` + `MCPHttpServer` + OAuth 2.1 resource-server auth ship
 (`capguard.mcp_http`, `capguard.mcp_auth`). Next: full server→client **SSE
-streaming** (GET stream + resumability) and `Mcp-Session-Id` lifecycle; an
-Ed25519/RS256 JWT verifier and JWKS fetch for third-party authorization servers.
+streaming** (GET stream + resumability) and `Mcp-Session-Id` lifecycle.
 
 ### 4. Policy-pack compiler — core shipped
 Compiler + `owasp-baseline` / `finance` / `data-exfil` packs ship (`capguard.packs`).
@@ -69,7 +71,7 @@ Next: more packs (healthcare, coding-agent, browser-agent), a `capguard packs li
 CLI, and signed/pinned pack distribution.
 
 ### 5. Packaging & docs
-- Finalize `pyproject` (console scripts: `capguard-proxy`, `capguard-bench`), CI workflow (lint + test + benchmark gate), publish to PyPI.
+- Publish the renamed PyPI distribution, `capguard-runtime` (imports and CLI remain `capguard`), via Trusted Publishing.
 - Quickstart + recipe docs per framework (LangGraph, CrewAI, OpenAI Agents, raw MCP).
 
 ---

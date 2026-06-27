@@ -75,10 +75,12 @@ def test_jwt_alg_confusion_rejected():
 
 
 def test_static_verifier():
-    v = StaticTokenVerifier({"tok-1": {"subject": "svc", "scopes": ["mcp:call"]}}, audience=AUD)
+    v = StaticTokenVerifier({"tok-1": {"subject": "svc", "scopes": ["mcp:call"], "audience": AUD}}, audience=AUD)
     assert v.verify("tok-1").subject == "svc"
     with pytest.raises(TokenError):
         v.verify("nope")
+    with pytest.raises(TokenError):
+        StaticTokenVerifier({"tok-2": {"subject": "svc", "scopes": ["mcp:call"]}}, audience=AUD).verify("tok-2")
 
 
 def test_extract_bearer_and_www_authenticate():

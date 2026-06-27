@@ -34,5 +34,5 @@ Because CapGuard is an enforcement layer, the highest-severity classes are
 
 ## Supported versions
 
-Pre-1.0: only the latest `main` / latest release is supported. Pin a version in
-production and watch releases.
+Pre-1.0: only the latest `main` is supported until the first tagged release is
+published. After that, pin a version in production and watch releases.

@@ -12,8 +12,11 @@ human approval — and backs that with hard isolation and a tamper-evident audit
 trail.
 
 ```bash
-pip install capguard
+pip install capguard-runtime
 ```
+
+The PyPI distribution is `capguard-runtime`; imports and the CLI use
+`capguard`.
 
 ## Why it exists
 
@@ -30,7 +33,8 @@ capability, policy, or provenance — not because a classifier flagged it.
 
 ## Numbers
 
-- **206 tests** (1 skipped: Docker backend).
+- **268 test functions**; optional integration tests self-skip when their
+  dependencies or Docker are unavailable.
 - Deterministic security benchmark: **0% attack-success rate / 100% utility /
   ~0.04 ms per call**.
 - Real **AgentDojo** (97 user + 35 injection tasks, all four suites): **0% ASR /

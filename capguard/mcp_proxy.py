@@ -33,7 +33,7 @@ from .core import AgentIdentity, ApprovalRequired, CapabilityViolation
 from .identity import IdentityError, IdentityVerifier, SignedIdentity
 from .mcp_guard import MCPGuard, MCPSecurityError, MCPToolDef
 
-PROTOCOL_VERSION = "2025-06-18"
+PROTOCOL_VERSION = "2025-11-25"
 
 
 # --------------------------------------------------------------------------- #

@@ -32,7 +32,7 @@ def main() -> None:
         if rid is None:
             continue  # notification
         if method == "initialize":
-            out = {"protocolVersion": "2025-06-18", "serverInfo": {"name": "echo", "version": "0"},
+            out = {"protocolVersion": "2025-11-25", "serverInfo": {"name": "echo", "version": "0"},
                    "capabilities": {"tools": {}}}
         elif method == "tools/list":
             out = {"tools": tools}

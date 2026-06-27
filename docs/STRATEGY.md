@@ -2,6 +2,10 @@
 
 *Co-founder strategy memo. Reasoned with Atom-of-Thoughts (decompose each claim to an atomic, checkable unit) and Tree-of-Thoughts (branch options, prune by market + research evidence). Grounded in the current repo and June 2026 state of the field.*
 
+> Historical memo. This document describes an earlier state of the repository;
+> many gaps called out below have since been implemented. Use `README.md`,
+> `docs/security-model.md`, and `ROADMAP.md` for the current product state.
+
 ---
 
 ## 0. TL;DR

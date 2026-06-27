@@ -33,7 +33,7 @@ def test_sign_and_client_fetch_compiles_engine():
     sp = sign_pack(signer, FINANCE_PACK, version=3)
 
     # injected transport returns exactly what the cloud would serve
-    client = PolicyClient("http://cloud/v1/policy", "tok", signer,
+    client = PolicyClient("https://cloud.example/v1/policy", "tok", signer,
                           _get=lambda u, h: sp.to_dict())
     engine, version = client.fetch()
     assert version == 3
@@ -48,14 +48,14 @@ def test_tampered_pushed_policy_is_rejected():
     sp = sign_pack(signer, FINANCE_PACK, version=1)
     d = sp.to_dict()
     d["pack"]["rules"].append({"name": "evil-allow", "tools": ["*"], "effect": "allow"})  # tamper
-    client = PolicyClient("http://cloud/v1/policy", "tok", signer, _get=lambda u, h: d)
+    client = PolicyClient("https://cloud.example/v1/policy", "tok", signer, _get=lambda u, h: d)
     with pytest.raises(PolicySyncError):
         client.fetch()
 
 
 def test_wrong_key_rejected():
     sp = sign_pack(HMACSigner(b"real"), FINANCE_PACK, version=1)
-    client = PolicyClient("http://cloud", "tok", HMACSigner(b"attacker"),
+    client = PolicyClient("https://cloud.example", "tok", HMACSigner(b"attacker"),
                           _get=lambda u, h: sp.to_dict())
     with pytest.raises(PolicySyncError):
         client.fetch()
@@ -65,7 +65,7 @@ def test_pushed_policy_cannot_widen_local_capability_gate():
     """Even a fully-permissive pushed pack can't grant authority the agent lacks."""
     signer = HMACSigner(b"k")
     permissive = {"rules": [{"name": "allow-all", "tools": ["*"], "effect": "allow"}]}
-    engine, _ = PolicyClient("u", "t", signer,
+    engine, _ = PolicyClient("https://policy.example/v1/policy", "t", signer,
                              _get=lambda u, h: sign_pack(signer, permissive, 1).to_dict()).fetch()
 
     reg = ToolRegistry()
@@ -99,7 +99,7 @@ def test_cloud_policy_roundtrip():
     assert r.status_code == 200 and r.json()["version"] == 1
 
     # a guard pulls it, verifying the signature locally, and compiles a working engine
-    client = PolicyClient("http://x/v1/policy", "kA", signer,
+    client = PolicyClient("https://cloud.example/v1/policy", "kA", signer,
                           _get=lambda u, h: tc.get("/v1/policy", headers=h).json())
     engine, version = client.fetch()
     assert version == 1
@@ -109,3 +109,24 @@ def test_cloud_policy_roundtrip():
 
     # versions increment on re-push
     assert tc.put("/v1/policy", headers={"Authorization": "Bearer kA"}, json=FINANCE_PACK).json()["version"] == 2
+
+
+def test_policy_client_rejects_unsafe_default_urls():
+    signer = HMACSigner(b"k")
+    with pytest.raises(ValueError, match="requires https outside loopback"):
+        PolicyClient("http://cloud.example/v1/policy", "tok", signer)
+    with pytest.raises(ValueError, match="non-public IP literal"):
+        PolicyClient("https://169.254.169.254/v1/policy", "tok", signer)
+
+
+def test_policy_client_allows_explicit_internal_escape_hatches():
+    signer = HMACSigner(b"k")
+    sp = sign_pack(signer, FINANCE_PACK, version=7)
+    internal = PolicyClient(
+        "https://10.0.0.5/v1/policy", "tok", signer,
+        allow_private_network=True, _get=lambda u, h: sp.to_dict())
+    assert internal.fetch()[1] == 7
+    dev = PolicyClient(
+        "http://policy.internal/v1/policy", "tok", signer,
+        allow_insecure_http=True, _get=lambda u, h: sp.to_dict())
+    assert dev.fetch()[1] == 7

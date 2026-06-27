@@ -41,27 +41,105 @@ def _build_auth(auth_cfg: Optional[Dict[str, Any]], http_cfg: Dict[str, Any]):
     """Build (token_verifier, required_scopes, resource_metadata) from config."""
     if not auth_cfg:
         return None, (), None
-    from .mcp_auth import HMACJWTVerifier, ProtectedResourceMetadata, StaticTokenVerifier
+    from .mcp_auth import (
+        HMACJWTVerifier,
+        JWKSVerifier,
+        ProtectedResourceMetadata,
+        StaticTokenVerifier,
+        fetch_authorization_server_metadata,
+    )
 
     audience = auth_cfg.get("audience")
-    kind = auth_cfg.get("type", "jwt-hs256")
+    kind = auth_cfg.get("type")
+    discovered_issuer = None
+    if kind is None:
+        if any(k in auth_cfg for k in (
+            "jwks_url", "jwks", "public_jwk", "issuer", "issuer_url",
+            "authorization_server", "metadata_url",
+            "authorization_server_metadata_url", "oidc_metadata_url",
+        )):
+            kind = "jwt-jwks"
+        elif "tokens" in auth_cfg:
+            kind = "static"
+        else:
+            kind = "jwt-hs256"
     if kind == "static":
         verifier = StaticTokenVerifier(auth_cfg.get("tokens", {}), audience=audience)
     elif kind == "jwt-hs256":
         secret = auth_cfg["secret"]
         verifier = HMACJWTVerifier(secret.encode() if isinstance(secret, str) else secret,
                                    audience=audience)
+    elif kind in ("jwt-eddsa-jwks", "jwt-rs256-jwks", "jwks", "jwt-jwks"):
+        configured_algs = auth_cfg.get("algorithms")
+        cache_ttl = auth_cfg.get("jwks_cache_ttl_seconds", auth_cfg.get("jwks_cache_ttl"))
+        cache_ttl_seconds = None if cache_ttl is None else float(cache_ttl)
+        refresh_on_kid_miss = bool(auth_cfg.get("jwks_refresh_on_kid_miss", True))
+        if configured_algs is None:
+            if kind == "jwt-eddsa-jwks":
+                algorithms = ["EdDSA"]
+            elif kind == "jwt-rs256-jwks":
+                algorithms = ["RS256"]
+            else:
+                algorithms = ["EdDSA", "RS256"]
+        elif isinstance(configured_algs, str):
+            algorithms = [configured_algs]
+        else:
+            algorithms = list(configured_algs)
+        metadata_url = (
+            auth_cfg.get("metadata_url")
+            or auth_cfg.get("authorization_server_metadata_url")
+            or auth_cfg.get("oidc_metadata_url")
+        )
+        issuer = (
+            auth_cfg.get("issuer")
+            or auth_cfg.get("issuer_url")
+            or auth_cfg.get("authorization_server")
+        )
+        discovery = auth_cfg.get("discovery", "auto")
+        metadata = None
+        if "jwks_url" in auth_cfg:
+            verifier = JWKSVerifier.from_url(
+                auth_cfg["jwks_url"], audience=audience,
+                timeout=float(auth_cfg.get("jwks_timeout", 5.0)),
+                algorithms=algorithms, cache_ttl_seconds=cache_ttl_seconds,
+                refresh_on_kid_miss=refresh_on_kid_miss)
+        elif metadata_url or issuer:
+            metadata = fetch_authorization_server_metadata(
+                issuer=issuer, metadata_url=metadata_url,
+                timeout=float(auth_cfg.get("metadata_timeout", auth_cfg.get("jwks_timeout", 5.0))),
+                discovery=discovery)
+            verifier = JWKSVerifier.from_url(
+                metadata["jwks_uri"], audience=audience,
+                timeout=float(auth_cfg.get("jwks_timeout", 5.0)),
+                algorithms=algorithms, cache_ttl_seconds=cache_ttl_seconds,
+                refresh_on_kid_miss=refresh_on_kid_miss)
+        else:
+            jwks = auth_cfg.get("jwks")
+            if jwks is None and "public_jwk" in auth_cfg:
+                jwks = {"keys": [auth_cfg["public_jwk"]]}
+            if jwks is None:
+                raise ValueError("JWT JWKS auth needs 'issuer_url', 'metadata_url', 'jwks_url', 'jwks', "
+                                 "or 'public_jwk'")
+            verifier = JWKSVerifier(jwks, audience=audience, algorithms=algorithms)
+        discovered_issuer = metadata.get("issuer") if metadata else None
     else:
-        raise ValueError(f"unknown auth type {kind!r} (use 'jwt-hs256' or 'static')")
+        raise ValueError(
+            f"unknown auth type {kind!r} (use 'jwt-jwks', 'jwt-rs256-jwks', 'jwt-eddsa-jwks', "
+            "'jwt-hs256', or 'static')"
+        )
 
     prm = None
     resource = auth_cfg.get("resource")
     if resource is None and http_cfg:
         resource = f"http://{http_cfg.get('host', '127.0.0.1')}:{int(http_cfg.get('port', 8080))}/"
     if resource:
+        authorization_servers = auth_cfg.get("authorization_servers")
+        if authorization_servers is None:
+            issuer = auth_cfg.get("issuer") or auth_cfg.get("issuer_url") or auth_cfg.get("authorization_server")
+            authorization_servers = [discovered_issuer or issuer] if (discovered_issuer or issuer) else []
         prm = ProtectedResourceMetadata(
             resource=resource,
-            authorization_servers=auth_cfg.get("authorization_servers", []),
+            authorization_servers=authorization_servers,
             scopes_supported=auth_cfg.get("required_scopes", []),
         )
     return verifier, tuple(auth_cfg.get("required_scopes", [])), prm
@@ -85,7 +163,12 @@ def _build_proxy_from_config(cfg: Dict[str, Any]):
     cloud = cfg.get("cloud")
     if cloud and cloud.get("url"):
         from .audit import HashChainedSink, HttpSink, MultiSink
-        sinks = [HttpSink(cloud["url"], token=cloud.get("token"))]
+        sinks = [HttpSink(
+            cloud["url"], token=cloud.get("token"),
+            timeout=float(cloud.get("timeout", 5.0)),
+            allow_private_network=bool(cloud.get("allow_private_network", False)),
+            allow_insecure_http=bool(cloud.get("allow_insecure_http", False)),
+        )]
         if cloud.get("local_log"):
             sinks.insert(0, HashChainedSink(cloud["local_log"]))
         audit_sink = MultiSink(*sinks) if len(sinks) > 1 else sinks[0]
@@ -97,7 +180,12 @@ def _build_proxy_from_config(cfg: Dict[str, Any]):
         if "stdio" in d:
             downstreams.append(StdioDownstream(d["server_id"], d["stdio"]))
         elif "http" in d:
-            downstreams.append(HttpDownstream(d["server_id"], d["http"], headers=d.get("headers")))
+            downstreams.append(HttpDownstream(
+                d["server_id"], d["http"], headers=d.get("headers"),
+                timeout=float(d.get("timeout", 30.0)),
+                allow_private_network=bool(d.get("allow_private_network", False)),
+                allow_insecure_http=bool(d.get("allow_insecure_http", False)),
+            ))
         else:
             raise ValueError(f"downstream {d.get('server_id')!r} needs 'stdio' or 'http'")
     return MCPProxy(guard=guard, agent=agent, downstreams=downstreams)
@@ -211,6 +299,12 @@ def _cmd_proxy(args) -> int:
         return 2
 
     if args.check:
+        if cfg.get("transport", "stdio") == "http":
+            try:
+                _build_auth(cfg.get("auth"), cfg.get("http", {}))
+            except Exception as exc:  # noqa: BLE001
+                print(f"error: auth: {exc}", file=sys.stderr)
+                return 2
         listing = proxy.handle({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
         tools = listing["result"]["tools"]
         print(f"exposed tools ({len(tools)}):")
@@ -263,8 +357,12 @@ def _cmd_init(args) -> int:
         cfg["transport"] = "http"
         cfg["http"] = {"host": "127.0.0.1", "port": 8080}
         cfg["auth"] = {
-            "type": "jwt-hs256", "secret": "CHANGE-ME",
+            "type": "jwt-jwks",
+            "algorithms": ["RS256", "EdDSA"],
             "audience": "https://your-guard.example/mcp",
+            "issuer_url": "https://your-idp.example",
+            "discovery": "auto",
+            "jwks_cache_ttl_seconds": 300,
             "required_scopes": ["mcp:call"],
             "authorization_servers": ["https://your-idp.example"],
         }
@@ -277,7 +375,7 @@ def _cmd_init(args) -> int:
         return 1
     out.write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
     print(f"wrote {out}\n  1. edit the downstreams / agent capabilities\n"
-          f"  2. capguard proxy {out} --check     # connect & list the post-guard tools\n"
+          f"  2. capguard proxy {out} --check     # connect, validate auth & list tools\n"
           f"  3. capguard proxy {out}             # serve")
     return 0
 
@@ -325,7 +423,7 @@ def build_parser() -> argparse.ArgumentParser:
     px = sub.add_parser("proxy", help="run the guarded MCP proxy from a config")
     px.add_argument("config", help="JSON/YAML proxy config")
     px.add_argument("--check", action="store_true",
-                    help="dry run: connect, list exposed tools, and exit")
+                    help="dry run: connect, validate HTTP auth, list exposed tools, and exit")
     px.set_defaults(func=_cmd_proxy)
     return p
 

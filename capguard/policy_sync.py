@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Mapping, Optional, Tuple
 
 from .identity import Signer
+from .net_safety import validate_http_url
 from .packs import compile_pack
 from .policy_dsl import PolicyEngine
 
@@ -69,8 +70,15 @@ class PolicyClient:
     after verifying the signature. ``_get`` is injectable for testing."""
 
     def __init__(self, url: str, token: str, signer: Signer, *, timeout: float = 5.0,
+                 allow_private_network: bool = False,
+                 allow_insecure_http: bool = False,
                  _get: Optional[Callable[..., Dict[str, Any]]] = None) -> None:
-        self._url = url
+        self._url = validate_http_url(
+            url,
+            label="policy sync URL",
+            allow_private_network=allow_private_network,
+            allow_insecure_http=allow_insecure_http,
+        )
         self._token = token
         self._signer = signer
         self._timeout = timeout

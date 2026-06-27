@@ -191,6 +191,19 @@ def _build_proxy_from_config(cfg: Dict[str, Any]):
     return MCPProxy(guard=guard, agent=agent, downstreams=downstreams)
 
 
+def _build_http_auth_from_config(cfg: Dict[str, Any]):
+    from .mcp_http import validate_http_server_auth
+
+    http_cfg = cfg.get("http", {})
+    verifier, scopes, prm = _build_auth(cfg.get("auth"), http_cfg)
+    validate_http_server_auth(
+        http_cfg.get("host", "127.0.0.1"),
+        verifier,
+        allow_unauthenticated_remote=bool(http_cfg.get("allow_unauthenticated_remote", False)),
+    )
+    return verifier, scopes, prm
+
+
 # --------------------------------------------------------------------------- #
 # command handlers (each returns an exit code)
 # --------------------------------------------------------------------------- #
@@ -301,7 +314,7 @@ def _cmd_proxy(args) -> int:
     if args.check:
         if cfg.get("transport", "stdio") == "http":
             try:
-                _build_auth(cfg.get("auth"), cfg.get("http", {}))
+                _build_http_auth_from_config(cfg)
             except Exception as exc:  # noqa: BLE001
                 print(f"error: auth: {exc}", file=sys.stderr)
                 return 2
@@ -316,11 +329,14 @@ def _cmd_proxy(args) -> int:
     if transport == "http":
         from .mcp_http import MCPHttpServer
         http_cfg = cfg.get("http", {})
-        verifier, scopes, prm = _build_auth(cfg.get("auth"), http_cfg)
+        verifier, scopes, prm = _build_http_auth_from_config(cfg)
         srv = MCPHttpServer(proxy, host=http_cfg.get("host", "127.0.0.1"),
                             port=int(http_cfg.get("port", 8080)),
                             token_verifier=verifier, required_scopes=scopes,
-                            resource_metadata=prm).start()
+                            resource_metadata=prm,
+                            allow_unauthenticated_remote=bool(
+                                http_cfg.get("allow_unauthenticated_remote", False)
+                            )).start()
         print(f"CapGuard MCP proxy serving on {srv.url}", file=sys.stderr)
         import time
         try:

@@ -38,7 +38,7 @@ from .mcp_auth import (
 )
 from .mcp_guard import MCPToolDef
 from .mcp_proxy import PROTOCOL_VERSION, MCPProxy, jrpc_request
-from .net_safety import validate_http_url
+from .net_safety import is_loopback_host, validate_http_url
 
 
 # --------------------------------------------------------------------------- #
@@ -71,6 +71,22 @@ def validate_remote_mcp_url(
         allow_private_network=allow_private_network,
         allow_insecure_http=allow_insecure_http,
         error_cls=ValueError,
+    )
+
+
+def validate_http_server_auth(
+    host: str,
+    token_verifier: Optional[TokenVerifier],
+    *,
+    allow_unauthenticated_remote: bool = False,
+    label: str = "HTTP MCP server",
+) -> None:
+    """Reject unauthenticated HTTP serving on non-loopback interfaces by default."""
+    if token_verifier is not None or allow_unauthenticated_remote or is_loopback_host(host):
+        return
+    raise ValueError(
+        f"{label} refuses unauthenticated non-loopback bind host {host!r}; "
+        "configure auth or set allow_unauthenticated_remote=true for an explicit lab-only override"
     )
 
 
@@ -257,7 +273,12 @@ class MCPHttpServer:
     def __init__(self, proxy: MCPProxy, host: str = "127.0.0.1", port: int = 0, *,
                  token_verifier: Optional[TokenVerifier] = None,
                  required_scopes=(),
-                 resource_metadata: Optional[ProtectedResourceMetadata] = None) -> None:
+                 resource_metadata: Optional[ProtectedResourceMetadata] = None,
+                 allow_unauthenticated_remote: bool = False) -> None:
+        validate_http_server_auth(
+            host, token_verifier,
+            allow_unauthenticated_remote=allow_unauthenticated_remote,
+        )
         self._httpd = ThreadingHTTPServer((host, port), _ProxyHTTPRequestHandler)
         self._httpd.proxy = proxy  # type: ignore[attr-defined]
         # OAuth resource-server config (None verifier => auth disabled)
@@ -288,7 +309,9 @@ class MCPHttpServer:
         return self
 
     def stop(self) -> None:
-        self._httpd.shutdown()
+        if self._thread is not None:
+            self._httpd.shutdown()
+            self._thread = None
         self._httpd.server_close()
 
     def __enter__(self) -> "MCPHttpServer":

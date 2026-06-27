@@ -4,7 +4,7 @@
 [![PyPI](https://img.shields.io/pypi/v/capguard-runtime.svg)](https://pypi.org/project/capguard-runtime/)
 [![Python](https://img.shields.io/pypi/pyversions/capguard-runtime.svg)](https://pypi.org/project/capguard-runtime/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-268%20functions-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/tests-272%20functions-brightgreen.svg)](#)
 [![ASR](https://img.shields.io/badge/benchmark-0%25%20ASR%20%2F%20100%25%20utility-brightgreen.svg)](docs/BENCHMARK_RESULTS.md)
 
 > Least privilege for AI agents, **enforced**. A non-bypassable layer that sits inline on every tool call and every MCP message.
@@ -17,7 +17,7 @@ CapGuard is an embeddable Python SDK that makes any agent stack (LangGraph, Crew
 
 **Package name:** install `capguard-runtime`; import and run it as `capguard`.
 
-**Status:** active development. Core is implemented and tested. The repo currently contains **268 test functions**; optional integration tests self-skip when their dependencies or Docker are unavailable. The deterministic scripted benchmark holds at **0% attack-success rate / 100% utility / ~0.04 ms per-call overhead**. On the **real AgentDojo benchmark** (97 user + 35 injection tasks across all four suites), one general provenance profile holds **ASR 0.0% at 100% utility** under deterministic ground-truth replay. **All ten OWASP ASI risks now carry a shipped mechanism — every row is ✓.**
+**Status:** active development. Core is implemented and tested. The repo currently contains **272 test functions**; optional integration tests self-skip when their dependencies or Docker are unavailable. The deterministic scripted benchmark holds at **0% attack-success rate / 100% utility / ~0.04 ms per-call overhead**. On the **real AgentDojo benchmark** (97 user + 35 injection tasks across all four suites), one general provenance profile holds **ASR 0.0% at 100% utility** under deterministic ground-truth replay. **All ten OWASP ASI risks now carry a shipped mechanism — every row is ✓.**
 
 ```bash
 pip install capguard-runtime      # or, from source: pip install -e ".[dev,yaml]"
@@ -25,6 +25,7 @@ pytest -q                         # full suite; optional integrations may self-s
 
 capguard init                        # scaffold a guarded-proxy config (--http, --cloud URL)
 python examples/demo_poison_strip.py   # 60-second demo: poisoned MCP tool stripped + guarded transfer
+python examples/e2e_realtime_validate.py # benchmark + live loopback HTTP MCP validation
 
 capguard bench                       # scripted security benchmark (exit non-zero on regression)
 capguard agentdojo                   # real AgentDojo eval (pip install agentdojo)
@@ -34,6 +35,10 @@ capguard mcp-scan tools.json         # scan MCP tool defs for poisoning
 capguard audit flows audit.jsonl     # reconstruct data flow; flag untrusted->sink paths
 capguard proxy proxy.json --check    # dry-run the proxy: list tools and validate HTTP auth
 ```
+
+To see the same agentic tool calls **with and without CapGuard**, run
+`python examples/e2e_realtime_validate.py` and look for the
+`Agentic calls: without CapGuard vs with CapGuard` section.
 
 ---
 
@@ -61,7 +66,7 @@ CapGuard fills that gap. It is the deterministic backstop: even when a model is 
 | **Forensic flow reconstruction** | `audit_graph` | Rebuilds the data-flow graph from the audit log by matching one call's result digest to a later call's argument digests, tagged with trust labels — answers "which untrusted source reached which sink, through which hops" for incident response. Zero raw payloads. |
 | **MCP security engine** | `mcp_guard` | Pins tool definitions by fingerprint, detects **rug pulls** (changed defs), **shadowing** (cross-server name/description collisions), and **tool poisoning** (instruction-override / concealment / exfiltration / zero-width smuggling in descriptions). |
 | **Runnable MCP proxy** | `mcp_proxy`, `mcp_http` | A JSON-RPC proxy any MCP client connects to, over **stdio or Streamable HTTP**. Guards local subprocess *and* remote/hosted MCP servers. Remote MCP URLs are validated before connect: HTTPS outside loopback, no userinfo/fragments, and no non-public IP literals unless explicitly allowed. Poisoned/rug-pulled/shadowed tools are **stripped from `tools/list`** so the malicious description never reaches the model; every `tools/call` is enforced and audited. |
-| **OAuth 2.1 boundary auth** | `mcp_auth` | The HTTP MCP server is an OAuth 2.1 **resource server**: validates bearer tokens — **RS256 or EdDSA + JWKS** discovered from OIDC/OAuth issuer metadata, HS256 for self-issued local tokens, or static — pins `alg`, checks **audience** (RFC 8707), refreshes JWKS on key rotation, rejects unsafe metadata/JWKS fetch URLs, returns `401 + WWW-Authenticate` / `403`, and serves Protected Resource Metadata (RFC 9728). Composes with the signed-identity gate. |
+| **OAuth 2.1 boundary auth** | `mcp_auth` | The HTTP MCP server is an OAuth 2.1 **resource server**: validates bearer tokens — **RS256 or EdDSA + JWKS** discovered from OIDC/OAuth issuer metadata, HS256 for self-issued local tokens, or static — pins `alg`, checks **audience** (RFC 8707), refreshes JWKS on key rotation, rejects unsafe metadata/JWKS fetch URLs, returns `401 + WWW-Authenticate` / `403`, and serves Protected Resource Metadata (RFC 9728). Non-loopback HTTP binds require auth unless explicitly overridden for lab use. Composes with the signed-identity gate. |
 | **Outbound URL safety** | `net_safety` | Shared fail-fast validation for every configured outbound HTTP client: remote MCP, auth metadata/JWKS, cloud audit ingest, and signed policy sync all reject userinfo/fragments, plaintext non-loopback HTTP, and non-public IP literals by default. |
 | **Sandboxed execution** | `sandbox` | Execution backends with isolation tiers: hardened `SubprocessBackend` (POSIX rlimits, no-shell, env scrub, timeout-kill), ephemeral `DockerBackend` (`--network none`, read-only, caps dropped), and `DenyBackend`. |
 | **Rogue-agent detection + kill switch** | `monitor` | Deterministic sliding-window anomaly detection over the audit stream — call-rate, denial-rate (probing), blast-radius (distinct sinks), novel-tool — trips a per-agent **circuit breaker**; the runtime then fail-closes that agent. (ASI10/ASI08) |
@@ -201,7 +206,7 @@ capguard/
   sandbox.py       execution backends (subprocess / docker / deny) + tool factories
   bench/           scripted benchmark + real-AgentDojo replay + live-LLM integration (guards every model call) + CI gate
 capguard_cloud/    hosted control plane (FastAPI): audit ingest + chain verify + live dashboard (observe-only)
-tests/             268 test functions (provenance, identity, a2a, adapters, properties, AgentDojo, monitor, budget, taskscope, memory, packs, http, auth, detectors, audit-graph, cli, packaging, …)
+tests/             272 test functions (provenance, identity, a2a, adapters, properties, AgentDojo, monitor, budget, taskscope, memory, packs, http, auth, detectors, audit-graph, cli, packaging, …)
 examples/          runnable MCP server + guarded proxy launcher
 docs/              strategy memo, enhancement plan, benchmark results
 ```

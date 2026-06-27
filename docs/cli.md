@@ -72,6 +72,11 @@ and `PolicyClient` signed-policy pull URLs. Loopback HTTP remains allowed for
 local development; private-network targets or plaintext non-loopback endpoints
 must be explicitly opted in with the matching constructor/config flag.
 
+For serving the proxy over HTTP, unauthenticated binds are allowed only on
+loopback hosts. If `http.host` is `0.0.0.0`, a public IP, or another
+non-loopback interface, configure `auth` or set
+`http.allow_unauthenticated_remote: true` as an explicit lab-only override.
+
 For HTTP proxy configs, `capguard proxy proxy.json --check` also builds the
 configured token verifier, so bad issuer discovery, unsafe metadata/JWKS URLs,
 missing HMAC secrets, and malformed inline JWKS material fail in CI before the

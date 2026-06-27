@@ -151,6 +151,35 @@ def test_proxy_check_validates_http_auth_config(tmp_path, capsys):
     assert "https outside loopback" in err
 
 
+def test_proxy_check_rejects_unauthenticated_non_loopback_http_bind(tmp_path, capsys):
+    cfg = {
+        "transport": "http",
+        "http": {"host": "0.0.0.0", "port": 8080},
+        "agent": {"id": "bot", "capabilities": []},
+        "downstreams": [],
+    }
+    cfg_path = tmp_path / "proxy.json"
+    cfg_path.write_text(json.dumps(cfg))
+
+    assert main(["proxy", str(cfg_path), "--check"]) == 2
+    err = capsys.readouterr().err
+    assert "unauthenticated non-loopback" in err
+
+
+def test_proxy_check_allows_explicit_unauthenticated_remote_override(tmp_path, capsys):
+    cfg = {
+        "transport": "http",
+        "http": {"host": "0.0.0.0", "port": 8080, "allow_unauthenticated_remote": True},
+        "agent": {"id": "bot", "capabilities": []},
+        "downstreams": [],
+    }
+    cfg_path = tmp_path / "proxy.json"
+    cfg_path.write_text(json.dumps(cfg))
+
+    assert main(["proxy", str(cfg_path), "--check"]) == 0
+    assert "exposed tools (0)" in capsys.readouterr().out
+
+
 def test_proxy_missing_config():
     assert main(["proxy", "/no/such/config.json", "--check"]) == 2
 

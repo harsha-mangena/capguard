@@ -38,6 +38,7 @@ from .mcp_auth import (
 )
 from .mcp_guard import MCPToolDef
 from .mcp_proxy import PROTOCOL_VERSION, MCPProxy, jrpc_request
+from .net_safety import validate_http_url
 
 
 # --------------------------------------------------------------------------- #
@@ -56,6 +57,23 @@ def _parse_sse(body: str) -> Dict[str, Any]:
 # --------------------------------------------------------------------------- #
 # Client: guard a remote MCP server
 # --------------------------------------------------------------------------- #
+def validate_remote_mcp_url(
+    url: str,
+    *,
+    allow_private_network: bool = False,
+    allow_insecure_http: bool = False,
+    label: str = "remote MCP URL",
+) -> str:
+    """Validate a configured remote MCP endpoint before opening a socket."""
+    return validate_http_url(
+        url,
+        label=label,
+        allow_private_network=allow_private_network,
+        allow_insecure_http=allow_insecure_http,
+        error_cls=ValueError,
+    )
+
+
 class HttpDownstream:
     """Downstream that speaks MCP JSON-RPC to a remote server over Streamable HTTP."""
 
@@ -66,9 +84,15 @@ class HttpDownstream:
         *,
         headers: Optional[Mapping[str, str]] = None,
         timeout: float = 30.0,
+        allow_private_network: bool = False,
+        allow_insecure_http: bool = False,
     ) -> None:
         self.server_id = server_id
-        self._url = url
+        self._url = validate_remote_mcp_url(
+            url,
+            allow_private_network=allow_private_network,
+            allow_insecure_http=allow_insecure_http,
+        )
         self._headers = dict(headers or {})
         self._timeout = timeout
         self._id = 0

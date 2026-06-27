@@ -1,20 +1,20 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "capguard"
+name = "capguard-runtime"
 version = "0.1.0"
-description = "Deterministic security runtime for AI agents: attenuable capabilities, argument-level policy, data provenance, MCP guard + proxy, sandboxed execution, and tamper-evident audit."
+description = "CapGuard: deterministic security runtime for AI agents with attenuable capabilities, argument-level policy, data provenance, MCP guard + proxy, sandboxed execution, and tamper-evident audit."
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [{ name = "Vamsi Sai Ranga Mangina", email = "44197358+harsha-mangena@users.noreply.github.com" }]
 keywords = ["ai-agents", "security", "mcp", "least-privilege", "owasp", "capabilities", "prompt-injection", "agentic"]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: Apache Software License",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
@@ -39,7 +39,7 @@ agentdojo = ["agentdojo>=0.1"]
 docs = ["mkdocs-material>=9.5"]
 # hosted control plane (FastAPI service + dashboard)
 cloud = ["fastapi>=0.110", "uvicorn>=0.29"]
-dev = ["pytest>=8.2", "hypothesis>=6.0", "ruff>=0.5", "build>=1.2", "pyyaml>=6.0",
+dev = ["pytest>=8.2", "hypothesis>=6.0", "ruff>=0.5", "build>=1.2", "twine>=5.1", "pyyaml>=6.0",
        "fastapi>=0.110", "httpx>=0.27"]
 
 [project.scripts]

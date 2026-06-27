@@ -39,11 +39,40 @@ capguard mcp-scan vendor_tools.json
     {"server_id": "remote", "http": "https://hosted-mcp.example/mcp"}
   ],
   "auth": {
-    "type": "jwt-hs256",
-    "secret": "shared-secret",
+    "type": "jwt-jwks",
+    "algorithms": ["RS256", "EdDSA"],
     "audience": "https://guard.example/mcp",
+    "issuer_url": "https://issuer.example",
+    "discovery": "auto",
+    "jwks_cache_ttl_seconds": 300,
     "required_scopes": ["mcp:call"],
     "authorization_servers": ["https://issuer.example"]
   }
 }
 ```
+
+`auth.type` also supports `jwt-rs256-jwks`, `jwt-eddsa-jwks`, `jwt-hs256` for
+self-issued local tokens, and `static` for simple fixed-token deployments. For
+production, prefer `jwt-jwks` with `issuer_url`; CapGuard discovers `jwks_uri`
+from OAuth Authorization Server Metadata or OIDC Discovery. Remote keysets
+refresh on unknown `kid` and after `jwks_cache_ttl_seconds`, so normal issuer
+key rotation does not require restarting the guard. Explicit `metadata_url`,
+`jwks_url`, inline `jwks`, and `public_jwk` configs are also supported. Remote
+metadata and JWKS URLs must be HTTPS outside loopback and cannot use non-public
+IP literals.
+
+HTTP downstream URLs are validated too: production endpoints must use HTTPS
+outside loopback, must not embed userinfo or fragments, and must not be
+non-public IP literals by default. For controlled internal deployments, set
+`allow_private_network: true` on that downstream; for plaintext non-loopback dev
+endpoints, set `allow_insecure_http: true`.
+
+The same shared outbound URL policy protects `cloud.url` audit ingest endpoints
+and `PolicyClient` signed-policy pull URLs. Loopback HTTP remains allowed for
+local development; private-network targets or plaintext non-loopback endpoints
+must be explicitly opted in with the matching constructor/config flag.
+
+For HTTP proxy configs, `capguard proxy proxy.json --check` also builds the
+configured token verifier, so bad issuer discovery, unsafe metadata/JWKS URLs,
+missing HMAC secrets, and malformed inline JWKS material fail in CI before the
+server starts.

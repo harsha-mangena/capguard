@@ -1,8 +1,11 @@
 # Quickstart
 
 ```bash
-pip install capguard
+pip install capguard-runtime
 ```
+
+The distribution is named `capguard-runtime` on PyPI; the Python package and CLI
+remain `capguard`.
 
 ## 60 seconds: guard a tool call
 

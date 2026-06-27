@@ -2,11 +2,15 @@
 
 *Co-founder/CTO memo. Reasoned with Atom-of-Thoughts (decompose every "best SDK" claim into an atomic, checkable unit) and Tree-of-Thoughts (branch the strategy, prune against June-2026 market + research evidence). Supersedes the framing in `STRATEGY.md` where the field has moved.*
 
+> Historical planning memo. For the current install name, release status, and
+> validation count, use `README.md` as the source of truth.
+
 ---
 
 ## 0. Where we stand (revalidated)
 
-- **Tests:** 50 passed, 1 skipped (Docker backend; no daemon in CI sandbox). Green.
+- **Tests:** the current tree contains 268 test functions; optional integrations
+  self-skip when their dependencies or Docker are unavailable.
 - **Benchmark:** ASR 0% / utility 100% / **0.027 ms** per guarded call. Holds.
 - **Architecture:** the seven planes from `STRATEGY.md` are largely *shipped* — attenuable capabilities with real argument enforcement, argument-level policy DSL, per-call provenance predicates, replay-safe approvals, hash-chained audit, MCP guard (pin/rug-pull/shadow/poison) + runnable proxy with `tools/list` stripping, and tiered sandbox backends.
 
@@ -106,7 +110,7 @@ Rationale (connecting the dots): P1 is the deepest moat, is exactly where the re
 
 ## 5.1 Status — shipped in this build ✅
 
-All five prioritized phases landed, tests green throughout (**50 → 105 passing**, 1 skipped: Docker).
+All five prioritized phases landed and remain covered by the current test suite.
 
 | Phase | Status | Evidence |
 |-------|--------|----------|
@@ -120,7 +124,7 @@ All five prioritized phases landed, tests green throughout (**50 → 105 passing
 | **ASI06** Provenance-preserving memory | ✅ | `capguard/memory.py` (taint survives write→read; optional deny mode); `tests/test_memory.py` (8) |
 | **Policy-pack compiler** | ✅ | `capguard/packs.py` (declarative profiles → `PolicyEngine` + capability templates; builtin owasp-baseline/finance/data-exfil); `tests/test_packs.py` (10) |
 
-**Total: 50 → 143 tests passing, 1 skipped.** Both benchmarks hold (scripted 15/15 @ 0% ASR; real AgentDojo 97+35 @ 0% ASR / 100% utility).
+**Current tree: 268 test functions.** Both benchmarks hold (scripted 15/15 @ 0% ASR; real AgentDojo 97+35 @ 0% ASR / 100% utility under deterministic ground-truth replay).
 
 **ASI coverage — every one of the ten risks is now ✓ (a deterministic shipped mechanism):** ASI01 (propagated taint), ASI02 (hardened + task-scoped), ASI03 (verifiable identity + delegation), ASI04 (MCP pin/scan), ASI05 (sandbox), ASI06 (provenance-preserving memory), ASI07 (shadowing + delegation attenuation), ASI08 (+ circuit breaker), ASI09 (replay-safe approvals), ASI10 (anomaly detection + kill switch).
 

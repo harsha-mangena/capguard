@@ -201,6 +201,14 @@ __all__ += [
     "ProvenanceMemory",
 ]
 
+# Shared outbound URL safety
+from .net_safety import URLSafetyError, validate_http_url  # noqa: E402
+
+__all__ += [
+    "URLSafetyError",
+    "validate_http_url",
+]
+
 # Policy packs (declarative profiles -> PolicyEngine)
 from .packs import (  # noqa: E402
     BUILTIN_PACKS,
@@ -236,11 +244,12 @@ __all__ += [
 ]
 
 # Streamable-HTTP MCP transport (guard remote MCP servers / serve the proxy over HTTP)
-from .mcp_http import HttpDownstream, MCPHttpServer  # noqa: E402
+from .mcp_http import HttpDownstream, MCPHttpServer, validate_remote_mcp_url  # noqa: E402
 
 __all__ += [
     "HttpDownstream",
     "MCPHttpServer",
+    "validate_remote_mcp_url",
 ]
 
 # OAuth 2.1 resource-server auth for the HTTP MCP boundary (RFC 9728 / RFC 8707)
@@ -249,9 +258,12 @@ from .mcp_auth import (  # noqa: E402
     HMACJWTVerifier,
     JWKSVerifier,
     ProtectedResourceMetadata,
+    RS256JWTVerifier,
     StaticTokenVerifier,
     TokenClaims,
     TokenError,
+    fetch_authorization_server_metadata,
+    fetch_jwks,
 )
 
 __all__ += [
@@ -259,9 +271,12 @@ __all__ += [
     "HMACJWTVerifier",
     "JWKSVerifier",
     "ProtectedResourceMetadata",
+    "RS256JWTVerifier",
     "StaticTokenVerifier",
     "TokenClaims",
     "TokenError",
+    "fetch_authorization_server_metadata",
+    "fetch_jwks",
 ]
 
 # Advisory detectors (deterministic-first, probabilistic-assist)

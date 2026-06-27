@@ -20,6 +20,7 @@ from typing import Any, Callable, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 from .core import PolicyDecision
+from .net_safety import validate_http_url
 
 GENESIS = "0" * 64
 
@@ -131,8 +132,15 @@ class HttpSink:
     """
 
     def __init__(self, url: str, *, token: Optional[str] = None, timeout: float = 5.0,
+                 allow_private_network: bool = False,
+                 allow_insecure_http: bool = False,
                  on_error: Optional[Callable[[Exception], None]] = None) -> None:
-        self._url = url
+        self._url = validate_http_url(
+            url,
+            label="audit sink URL",
+            allow_private_network=allow_private_network,
+            allow_insecure_http=allow_insecure_http,
+        )
         self._token = token
         self._timeout = timeout
         self._on_error = on_error

@@ -8,7 +8,7 @@ Thanks for helping make least-privilege for AI agents real and enforced.
 git clone https://github.com/harsha-mangena/capguard
 cd capguard
 pip install -e ".[dev,yaml]"
-pytest -q                 # 206 passed, 1 skipped (Docker backend)
+pytest -q                 # full suite; optional integrations may self-skip
 ruff check capguard tests examples
 capguard bench            # security benchmark gate (must stay ASR 0 / utility 100)
 ```
@@ -33,6 +33,13 @@ CapGuard is a security kernel, so every change keeps these invariants:
 - [ ] `capguard bench` still 0% ASR / 100% utility
 - [ ] Docs / README updated if behavior changed
 - [ ] No raw payloads written to the audit log (digests only)
+
+## Releases
+
+The PyPI distribution is `capguard-runtime`; imports and the CLI remain
+`capguard`. Use [`RELEASE.md`](RELEASE.md) for the release checklist. The
+release workflow publishes only from version tags through PyPI Trusted
+Publishing.
 
 ## Commit style
 

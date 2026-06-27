@@ -7,6 +7,8 @@ import threading
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+import pytest
+
 from capguard import (
     AgentIdentity,
     Capability,
@@ -18,6 +20,7 @@ from capguard import (
     Severity,
 )
 from capguard.mcp_guard import explicit_mapper
+from capguard.mcp_http import validate_remote_mcp_url
 from capguard.mcp_proxy import InProcessDownstream
 
 
@@ -92,6 +95,46 @@ def test_http_initialize_returns_session_id():
 
 
 # --------------------------------------------------------------------------- #
+# remote MCP URL hardening
+# --------------------------------------------------------------------------- #
+def test_remote_mcp_url_policy_allows_loopback_http():
+    assert validate_remote_mcp_url("http://127.0.0.1:8765/mcp") == "http://127.0.0.1:8765/mcp"
+    assert validate_remote_mcp_url("http://localhost:8765/mcp") == "http://localhost:8765/mcp"
+
+
+def test_remote_mcp_url_requires_https_outside_loopback():
+    with pytest.raises(ValueError, match="requires https outside loopback"):
+        validate_remote_mcp_url("http://mcp.example/mcp")
+    with pytest.raises(ValueError, match="requires https outside loopback"):
+        HttpDownstream("remote", "http://mcp.example/mcp")
+
+
+def test_remote_mcp_url_rejects_non_public_ip_literals():
+    with pytest.raises(ValueError, match="non-public IP literal"):
+        validate_remote_mcp_url("https://169.254.169.254/latest/meta-data/")
+    with pytest.raises(ValueError, match="non-public IP literal"):
+        validate_remote_mcp_url("https://10.0.0.5/mcp")
+
+
+def test_remote_mcp_url_rejects_userinfo_and_fragments():
+    with pytest.raises(ValueError, match="must not contain userinfo"):
+        validate_remote_mcp_url("https://token@mcp.example/mcp")
+    with pytest.raises(ValueError, match="must not contain a fragment"):
+        validate_remote_mcp_url("https://mcp.example/mcp#tools")
+
+
+def test_remote_mcp_url_allows_explicit_internal_escape_hatches():
+    assert (
+        validate_remote_mcp_url("https://10.0.0.5/mcp", allow_private_network=True)
+        == "https://10.0.0.5/mcp"
+    )
+    assert (
+        validate_remote_mcp_url("http://mcp.internal/mcp", allow_insecure_http=True)
+        == "http://mcp.internal/mcp"
+    )
+
+
+# --------------------------------------------------------------------------- #
 # guard a REMOTE MCP server reached over HTTP
 # --------------------------------------------------------------------------- #
 class _FakeRemoteMCP(BaseHTTPRequestHandler):
@@ -116,7 +159,7 @@ class _FakeRemoteMCP(BaseHTTPRequestHandler):
             self.end_headers()
             return
         if method == "initialize":
-            res = {"protocolVersion": "2025-06-18", "serverInfo": {"name": "fake"}, "capabilities": {}}
+            res = {"protocolVersion": "2025-11-25", "serverInfo": {"name": "fake"}, "capabilities": {}}
         elif method == "tools/list":
             res = {"tools": [{"name": "ping", "description": "ping the service", "inputSchema": {}}]}
         elif method == "tools/call":

@@ -10,6 +10,8 @@ from __future__ import annotations
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+import pytest
+
 from capguard import (
     AgentIdentity,
     AgentRuntime,
@@ -90,6 +92,20 @@ def test_cloud_down_does_not_break_enforcement():
     assert rt.invoke_tool("echo", text="hi") == "ok"     # enforcement unaffected
     assert len(local.events) == 1 and verify_chain(local.events)
     assert dead.dropped == 1                              # cloud post failed, swallowed
+
+
+def test_httpsink_rejects_unsafe_urls_before_network():
+    with pytest.raises(ValueError, match="requires https outside loopback"):
+        HttpSink("http://cloud.example/v1/audit")
+    with pytest.raises(ValueError, match="non-public IP literal"):
+        HttpSink("https://169.254.169.254/latest/meta-data/")
+    with pytest.raises(ValueError, match="must not contain userinfo"):
+        HttpSink("https://token@cloud.example/v1/audit")
+
+
+def test_httpsink_allows_explicit_internal_escape_hatches():
+    HttpSink("https://10.0.0.5/v1/audit", allow_private_network=True)
+    HttpSink("http://cloud.internal/v1/audit", allow_insecure_http=True)
 
 
 def test_local_sink_remains_source_of_truth_with_file(tmp_path):

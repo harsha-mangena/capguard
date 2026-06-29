@@ -133,6 +133,8 @@ def test_real_subprocess_stdio_downstream(poison):
     # Spawn the real echo MCP server as a subprocess and proxy it.
     env_server = os.path.join(os.path.dirname(__file__), "..", "examples", "echo_mcp_server.py")
     env_server = os.path.abspath(env_server)
+    if not os.path.exists(env_server):
+        pytest.skip("echo_mcp_server.py not present (removed during cleanup)")
     old = os.environ.get("CAPGUARD_DEMO_POISON")
     os.environ["CAPGUARD_DEMO_POISON"] = "1" if poison else "0"
     try:
